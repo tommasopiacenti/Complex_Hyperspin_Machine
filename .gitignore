@@ -1,0 +1,6 @@
+*.x
+*.o
+results/
+scripts/
+docs/Memory_Usage_Tests/
+docs/SCRIPTS_README.md
