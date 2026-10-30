@@ -4,6 +4,12 @@
 
 ---
 
+## Acknowledgments
+Funded by the European Union (HORIZON-ERC-2023-ADG HYPERSPIM project Grant No. 101139828)
+(https://www.hyperspim.org)
+
+---
+
 ## Table of Contents
 
 1. [Overview & Quick Start](#1-overview--quick-start)
