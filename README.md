@@ -6,7 +6,7 @@
 
 ## Acknowledgments
 Funded by the European Union (HORIZON-ERC-2023-ADG HYPERSPIM project Grant No. 101139828)
-[hyperpsim.org](https://https://hyperspim.newcomplexlight.org)
+[hyperpsim.org](https://hyperspim.newcomplexlight.org)
 
 ---
 
