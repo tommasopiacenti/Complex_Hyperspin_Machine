@@ -30,7 +30,7 @@ Funded by the European Union (HORIZON-ERC-2023-ADG HYPERSPIM project Grant No. 1
 
 ## 1. Overview & Quick Start
 
-Complex_HSM simulates the dynamics of a system of parametric oscillators used as a **Complex Hyperspin Machine**. The natural dynamical variables are **N complex fields** S_a ∈ ℂ^D (a = 0, ..., N−1), each with D components, evolving via second-order Runge-Kutta (RK2) integration of driven-dissipative ODEs. Each couple of neighboring hyperspin fields in the equalization ring carries an **equalization field** (two components Y0, Y1) that stabilizes their amplitude difference.
+Complex_HSM simulates the dynamics of a system of parametric oscillators used as a **Complex Hyperspin Machine**. The natural dynamical variables are N*D oscillator fields arranged as **N complex hyperspin vectors** S_a ∈ ℂ^D (a = 0, ..., N−1), each with D components, evolving via second-order Runge-Kutta (RK2) integration of driven-dissipative ODEs. Each couple of neighboring hyperspin fields in the equalization ring carries an **equalization field** (two components Y0, Y1) that stabilizes their amplitude difference.
 
 The machine maps to a **hyperspin Hamiltonian** H — an energy functional defined on the *directions* of the fields, which we identify with complex hyperspins:
 
