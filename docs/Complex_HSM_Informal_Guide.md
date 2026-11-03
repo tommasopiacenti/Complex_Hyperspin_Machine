@@ -38,7 +38,7 @@ To run the program use:
 ./Complex_HSM.x <NS> <pth> <Complex_HSM.ini>
 ```
 
-- **NS** — the seed used for random generation (of initial conditions and optionally coupling matrices).
+- **NS** — the seed used for random generation (of initial conditions, pump values and optionally coupling matrices).
 - **pth** — the fraction of the pump threshold to use. If `pth >= 0` the pump threshold `hth` is automatically computed and the pump is set to `hm = pth * hth`. Set to `pth = -1` to avoid automatic threshold computation and use the value set in the `.ini` file.
 - **Complex_HSM.ini** — the file containing the simulation parameters.
 
@@ -46,7 +46,7 @@ To run the program use:
 
 ## 2) The INI File
 
-The `Complex_HSM.ini` must contain the following parameters as separate lines:
+The `Complex_HSM.ini` holds the parameters below, one per line. Keys with no default must be set (see README §1.2); the others are optional, with defaults listed under `parse_config()` in section 7.1.
 
 ### System Parameters
 
@@ -65,6 +65,7 @@ The `Complex_HSM.ini` must contain the following parameters as separate lines:
 - `hm = <hm>` *(double)* — pump average amplitude
 - `dh = <dh>` *(double)* — pump amplitude max deviation
 - `Dh = <Dh>` *(double)* — pump dynamic change
+- `Dh2 = <Dh2>` *(double)* — second pump dynamic change
 
 ### Time Parameters
 
@@ -73,6 +74,11 @@ The `Complex_HSM.ini` must contain the following parameters as separate lines:
 - `t_coup = <t_coup>` *(double)* — coupling starting time
 - `t_eq = <t_eq>` *(double)* — equalization starting time
 - `t_pump = <t_pump>` *(double)* — pump dynamic change time
+- `t_pump2 = <t_pump2>` *(double)* — second pump dynamic change time
+- `t_hramp = <t_hramp>` *(double)* — pump ramp starting time
+- `n_hramp = <n_hramp>` *(int)* — number of pump ramp steps
+- `Dt_hramp = <Dt_hramp>` *(double)* — time between pump ramp steps
+- `Dhramp = <Dhramp>` *(double)* — pump change per ramp step
 
 ### Stop Conditions
 
@@ -103,7 +109,7 @@ The `Complex_HSM.ini` must contain the following parameters as separate lines:
 - `save_steps = <save_steps>` *(int)* — number of steps between output writes
 - `buffer_size = <buffer_size>` *(int)* — buffer size (auto flush when full)
 - `flush_interval = <flush_interval>` *(int)* — flush interval (set flushing frequency)
-- `output_dir = <output_dir>` *(int)*\*\* — dedicated output directory under `Complex_HSM/results`
+- `output_dir = <output_dir>` *(string)* — `0` for the current folder, `1` for `results/run_<hash>/`, any other string is a base path (`<path>/run_<hash>/`)
 - `compute_eigenvalues = <compute_eigenvalues>` *(int)*\*\* — compute eigenvalues at origin & produce dense matrix file
 - `num_threads = <num_threads>` *(int)* — number of parallel threads
 
@@ -115,7 +121,7 @@ The `Complex_HSM.ini` must contain the following parameters as separate lines:
 
 > \*\*\* — **`new_coupling`**: 0 for reading existing coupling named `Data_Matrix.dat` (dense) or `Data_Matrix_sparse.dat` (sparse); 1 to generate a Random Graph; 2 to generate a Square Lattice. Generating new couplings overwrites old ones. **`lattice_bc`**: use 1 for periodic boundary conditions, 0 for non-connected system boundaries. **`save_dyn`**:
 > - `save_dyn = 0` — only saves the fields final state
-> - `save_dyn = 1` — saves all the possible observables (see more detail later)
+> - `save_dyn = 1` — saves the fields, equalizers, Energy and Lyapunov observables and the final state (Magnetization and Amplitude Variance are only saved with `save_dyn = 3`)
 > - `save_dyn = 2` — saves the final state and the Energy and Lyapunov observables
 > - `save_dyn = 3` — saves a single file with Energy, Lyapunov, Magnetization and Hyperspin Amplitude Variance
 
@@ -141,13 +147,13 @@ The program is launched using:
 
 The main uses the following variable declarations:
 
-- **`int` variables:** `N`, `D`, `save_dyn`, `new_coupling`, `type_coup`, `initial_type`, `stop_at_E_target`, `stop_when_stable`, `steps_for_update`, `stable_window`, `save_steps`, `compute_eigenvalues`, `relative_H_change`, `lattice_d`, `lattice_NL`, `lattice_bc`, `buffer_size`, `flush_interval`, `num_threads`
-- **`double` variables:** `Amax`, `phim`, `dphi`, `g`, `beta`, `hm`, `dh`, `Dh`, `deq`, `tmax`, `dt`, `t_coup`, `t_eq`, `t_pump`, `prob_coup`, `prob_pm_re`, `prob_pm_im`, `coup_phase`, `E_target`, `E_target_tol`, `allowed_H_change`, `t_final_value`
+- **`int` variables:** `N`, `D`, `save_dyn`, `new_coupling`, `type_coup`, `initial_type`, `stop_at_E_target`, `stop_when_stable`, `steps_for_update`, `stable_window`, `save_steps`, `compute_eigenvalues`, `relative_H_change`, `n_hramp`, `lattice_d`, `lattice_NL`, `lattice_bc`, `buffer_size`, `flush_interval`, `num_threads`, `NS`
+- **`double` variables:** `Amax`, `phim`, `dphi`, `g`, `beta`, `hm`, `dh`, `Dh`, `Dh2`, `deq`, `tmax`, `dt`, `t_coup`, `t_eq`, `t_pump`, `t_pump2`, `t_hramp`, `Dt_hramp`, `Dhramp`, `prob_coup`, `prob_pm_re`, `prob_pm_im`, `coup_phase`, `E_target`, `E_target_tol`, `allowed_H_change`, `pth`, `t_final_value`
 - **`char` variables:** `output_dir[512]`, `stop_reason[128]`
 
 **Workflow — function details are given later:**
 
-**Step 0** — If the number of arguments when executing is wrong, return an error message. Relevant variables for initialization are declared.
+**Step 0** — Relevant variables for initialization are declared and `NS` and `pth` are read from the arguments. If the number of arguments is then wrong, an error message is returned; with fewer than two arguments the program crashes at that read, before the check.
 
 **Step 1** — `parse_config()` reads the ini file, looks for the simulation parameters and puts each in the corresponding declared variable.
 
@@ -155,9 +161,10 @@ The main uses the following variable declarations:
 
 - If `save_steps < 1` it is set to 1.
 - If `initial_type` is not 0, 1 or 2, return an error message.
-- If `output_dir = 1` the output directory is set to `/results`, later the results will be saved under `/results/run_<hash>` where the hash is computed later. If `output_dir = 0` the output directory name is set to `\0` (executable directory).
+- If `output_dir = 1` the output directory is set to `results` (relative to the current folder), and results are later saved under `results/run_<hash>`. If `output_dir = 0` the name is set to empty (current folder). Any other string is used as a base path.
 - If `new_coupling = 2` (Lattice) the ini value of `N` is overridden and set to `N = lattice_NL^d`.
-- If `pth > 0` and `compute_eigenvalues = 0` return an error message as `compute_eigenvalues = 1` is required for pump threshold computation.
+- If `pth >= 0` and `compute_eigenvalues = 0` return an error message as `compute_eigenvalues = 1` is required for pump threshold computation.
+- If `n_hramp > 0` and `Dt_hramp < dt`, return an error message.
 
 **Step 3** — `print_header_and_ini_parameters()` prints on screen the header and the main ini parameters.
 
@@ -177,9 +184,9 @@ The main uses the following variable declarations:
 
 **Step 9** — Apply phase rotation if `coup_phase != 0` to all entries of the coupling matrix with `apply_coupling_rotation()`. If rotation was applied, overwrite the non-phase-rotated data files again with `write_sparse_matrix_file()` and, optionally, `write_dense_matrix_file()`.
 
-**Step 10** — Char variables are declared to store hash unique code and results directory name. Hash code is computed using several system parameters from ini, input line (`NS` and `pth`) and the generated matrix file (sparse format is preferred). The functions `compute_hash()`, `format_hash_hex()`, `copy_file_to_dir()` are used in the process. The output directory name is printed on output.
+**Step 10** — Char variables are declared to store hash unique code and results directory name. If an output directory is set, the hash code is computed using several system parameters from ini, input line (`NS` and `pth`) and the generated matrix file (sparse format is preferred). The functions `compute_hash()`, `format_hash_hex()`, `copy_file_to_dir()` are used in the process. The output directory name is printed on output.
 
-**Step 11** — If `pth > 0` the pump threshold is computed and the pump value `hm` is set as `hm = pth * hth`. The function `h_threshold()` is used. Notice the function is very naive and not very efficient. This feature should only be used for testing purposes until the code is updated.
+**Step 11** — If `pth >= 0` the pump threshold is computed and the pump value `hm` is set as `hm = pth * hth`. The function `h_threshold()` is used. Notice the function is very naive and not very efficient. This feature should only be used for testing purposes until the code is updated.
 
 **Step 12** — The function `initialize_pump()` is used to set the pump amplitude and phase for each hyperspin, generating them according to a uniform distribution of fixed average `hm` and size.
 
@@ -187,16 +194,16 @@ The main uses the following variable declarations:
 
 **Step 14** — Eigenvalues Computation:
 
-- If `compute_eigenvalues = 1` — first the max eigenvalue of the coupling matrix `J` is computed, then the max eigenvalue of the whole system linearized matrix at the origin is computed (the problem is nonlinear so it is linearized close to the origin). Max eigenvalues are printed on output.
+- If `compute_eigenvalues = 1` — first `Jmax` is computed, which equals half the largest eigenvalue of `J` because the linearized matrix holds `J/2`; then the max eigenvalue of the whole system linearized matrix at the origin is computed (the problem is nonlinear so it is linearized close to the origin). Max eigenvalues are printed on output.
 - If `compute_eigenvalues = 0` — max eigenvalues are not computed.
 
 Used functions: `initialize_pump()`, `Linearized_Max_Eigenvalue()`.
 
 **Step 15** — Pump modification array is prepared with `initialize_pump()`.
 
-**Step 16** — Using an `io_context` struct `ctx` (defined in `Complex_HSM.h`) output files are initialized using the function `init_output_files()`. An error message is returned on failure.
+**Step 16** — Using an `io_context` struct `ctx` (defined in `Complex_HSM.h`) output files are initialized using the function `init_output_files()`. An error message is printed on failure; the run stops there only for `save_dyn = 0` (see README §12.4).
 
-**Step 17** — A message that states *'Initialization Completed'* is printed. Also info about peak memory usage is printed on output; peak memory was registered during matrix generation in `initialize_J_Hermitian_Binary_Sparse()`, steady memory is instead directly registered at the calling of `print_memory_peak()`, which also prints the memory information.
+**Step 17** — A message that states *'Initialization Completed'* is printed. Also info about memory usage is printed: `startup_heap_B` is recorded after matrix generation in `initialize_J_Hermitian_Binary_Sparse()` and stays 0 in lattice and file modes; steady memory is registered at the calling of `print_memory_peak()`, which also prints the memory information.
 
 **Step 18** — If `num_threads > 1` the number of parallel threads is set with `omp_set_num_threads()`, passing from the default sequential mode with `use_parallel = 0` to parallel with `use_parallel = 1`.
 
@@ -210,30 +217,34 @@ int steps = 0;
 int coup_control = 0;
 int eq_control = 0;
 int pump_control = 0;
+int pump2_control = 0;
+int ramp_fired = 0;
 int stable_count = 0;
 int first_stable_check = 1;
 double H_check_old = 0.0;
 int t_final_printed = 0;
 ```
 
+`t_ramp_end` and `t_last_change` are also computed here; stability checks only start after `t_last_change`.
+
 **Step 20.0** — `while` loop starts for `t < tmax`. Inside the loop:
 
 **Step 20.1** — Time progress is printed on screen as a percentage.
 
-**Step 20.2** — Checks are performed to activate dynamic changes in the system parameters. This affects the coupling matrix (`coup_control`), equalization (`eq_control`) and pump (`pump_control`): if the control variable is zero and the current time is higher or equal to the corresponding dynamic time (`t_coup`, `t_eq`, `t_pump`) the action is performed. *Coup* and *eq* are activated and remain active for the rest of the simulation; pump is modified by the selected `Dh` amount.
+**Step 20.2** — Checks are performed to activate dynamic changes in the system parameters. This affects the coupling matrix (`coup_control`), equalization (`eq_control`) and pump (`pump_control`): if the control variable is zero and the current time is higher or equal to the corresponding dynamic time (`t_coup`, `t_eq`, `t_pump`) the action is performed. *Coup* and *eq* are activated and remain active for the rest of the simulation; pump is modified by the selected `Dh` amount. The second pump offset (`pump2_control`, `t_pump2`) adds `Dh2` once, and the ramp (`ramp_fired`, `t_hramp`) adds `Dhramp` up to `n_hramp` times, every `Dt_hramp`.
 
-**Step 20.3** — If the current time step is a multiple of the `save_steps` variable, a control variable `save_step` is set and **all** the observables are computed and saved on file. Otherwise the `compute_H` gate decides whether any observable is computed at all: on E-target runs (`stop_at_E_target=1`), stability-check-aligned steps (`(steps+1) % steps_for_update == 0`) and the final step, only the Hamiltonian is computed; on all other (idle) steps `compute_observables()` is skipped entirely. The function `compute_observables()` is called with the gate flags `(compute_H, compute_full)`; `save_output_files()` and `flush_output_files()` are only used if `save_step = 1`.
+**Step 20.3** — If the current time step is a multiple of the `save_steps` variable and `save_dyn > 0`, a control variable `save_step` is set and **all** the observables are computed and saved on file. Otherwise the `compute_H` gate decides whether any observable is computed at all: on E-target runs (`stop_at_E_target=1`), stability-check-aligned steps (`(steps+1) % steps_for_update == 0`) and the final step, only the Hamiltonian is computed; on all other (idle) steps `compute_observables()` is skipped entirely. The function `compute_observables()` is called with the gate flags `(compute_H, compute_full)`; `save_output_files()` is only used if `save_step = 1`; `flush_output_files()` runs every `flush_interval` steps when `save_dyn > 0`.
 
 **Step 20.4** — The RK update is performed via the function `RK2_step()`.
 
 **Step 20.5** — Time and steps counter are updated.
 
-**Step 20.6** — If `stop_at_E_target = 1` the program checks if the system's energy is below the selected threshold `E_target`; if so the time is set to `tmax` and the simulation is ended. A message is printed on output with the cause of the stop. The final time is saved and displayed.
+**Step 20.6** — If `stop_at_E_target = 1` the program checks if `H <= E_target*(1 - E_target_tol)`; if so the time is set to `tmax` and the simulation is ended. A message is printed on output with the cause of the stop. The final time is saved and displayed.
 
-**Step 20.7** — If `stop_when_stable = 1` and the current time step is a multiple of `steps_for_update` and the simulation time is higher than `t_coup`, `t_eq` and `t_pump`, the program:
+**Step 20.7** — If `stop_when_stable = 1` and the current time step is a multiple of `steps_for_update` and the simulation time is higher than `t_last_change`, the largest of `t_coup`, `t_eq`, `t_pump`, `t_pump2` and the ramp end, the program:
 
 - Saves the current energy if this is the first stability check in the variable `H_check_old`. Otherwise, first checks if the stop energy difference condition must be applied to the relative energy or not, and uses the corresponding value. Then checks whether the condition is satisfied and if so updates the counter `stable_count` adding one, otherwise it resets it to zero.
-- If `stable_count > stable_window` time is set to `tmax` and the simulation is ended. A message is printed on output with the cause of the stop. The final time is saved and displayed.
+- If `stable_count >= stable_window` time is set to `tmax` and the simulation is ended. A message is printed on output with the cause of the stop. The final time is saved and displayed.
 - If the program did not stop, updates the variable `H_check_old` with the current value of the energy.
 
 ### Finishing Steps
@@ -242,13 +253,15 @@ int t_final_printed = 0;
 
 **Step 22** — The final configuration of the system dynamics variables is saved on file using the function `save_final_config()`.
 
-**Step 23** — If `output_dir = 1` (hence `results_dir[0]` is not an empty string but contains the name of the results directory) a metadata file is written in it with the `write_metadata()` function. If `output_dir = 0` (hence `results_dir[0]` is an empty string) this step is skipped.
+**Step 23** — If an output directory is set (hence `result_dir` is not empty) a metadata file is written in it with `write_metadata()`. Otherwise this step is skipped.
 
 **Step 24** — If `save_dyn > 0` output files that were open are closed with the function `close_output_files()`; else only the final configuration file is closed.
 
-**Step 25** — The final value of the energy is printed on screen.
+**Step 25** — The final value of the energy is printed on screen, followed by whether the final state is real or complex (`system_is_real()`).
 
 **Step 26** — All the dynamics variables of the system are freed with the function `free_system()`.
+
+**Edge cases** of the program are listed in README §12.4.
 
 ---
 
@@ -265,7 +278,7 @@ It is **NOT** a "header only declares, the `.c` implements" file. Everything in 
 Consequences you should absorb:
 
 - There is **no separate** `Complex_HSM_lib.c` to compile. You compile **ONLY** `Complex_HSM.c` and that one file drags in all this code. (The compiler sees one big translation unit.)
-- Because everything is in one file, internal helper functions do not need to be "declared before use" the way they must across `.c` files — the `.h` just orders things sensibly on its own.
+- Because everything is one translation unit, there is nothing to link separately. The header starts with forward declarations of its functions, so their order inside the file does not matter.
 
 The header also pulls in a stack of system headers on top of what the `.c` already includes:
 
@@ -295,15 +308,15 @@ Here is the full tour (sizes given in parentheses; **N** = number of hyperspins,
 
 - `S_re`, `S_im` *(N*D each)* — hyperspin fields, real and imaginary parts. These are the variables of the physical dynamic system. A single field is a complex number given by `S(i,j) = S_re[i*D+j] + i*S_im[i*D+j]`: `i` and `j` represent the hyperspin number and the specific component (D of them).
 - `S2` *(N)* — the squared norm of each field, `S2(a) = |S(a)|^2 = sum_j (Re^2 + Im^2)`. Recompute via `compute_hyperspin_norm()`; used everywhere (normalization, beta nonlinearity, energy).
-- `DS_re`, `DS_im` *(N*D each)* — the **MIDPOINT** fields. RK2 is a two-stage integrator: it first takes a half-step to produce DS (the midpoint), then a full step from the midpoint to update S. DS lives here. Not meaningful between the two phases — it is transient.
+- `DS_re`, `DS_im` *(N*D each)* — the **MIDPOINT** fields. RK2 is a two-stage integrator: it first takes a half-step to produce DS (the midpoint), then a full step from the midpoint to update S. DS lives here. Only used inside `RK2_step` — it is transient.
 - `DS2` *(N)* — squared norm of the midpoint fields, same idea as `S2` but for DS.
 
 #### Equalizers (Y fields)
 
 The equalization scheme that fights amplitude heterogeneity:
 
-- `Y_re`, `Y_im` *(N\*2 each)* — each hyperspin carries **TWO** complex equalizer fields, indexed by `k = 0,1`. Equalizer `(a,k)` = `Y_re[(a)*2 + k] + i*Y_im[(a)*2 + k]`.
-- `DY_re`, `DY_im` *(N\*2 each)* — the midpoint equalizers, same role as DS for the fields. The equalizers are integrated with the same RK2 midpoint/full scheme. Note the size is `N*2` as equalizers are always **2 per hyperspin**, regardless of D. (The header indeed prints `Neq=2*N`.)
+- `Y_re`, `Y_im` *(N\*2 each)* — each couple of neighboring hyperspins `(a, a+1)` on the equalization ring carries **TWO** complex equalizer fields, stored at index `a` and indexed by `k = 0,1`. Equalizer `(a,k)` = `Y_re[(a)*2 + k] + i*Y_im[(a)*2 + k]`.
+- `DY_re`, `DY_im` *(N\*2 each)* — the midpoint equalizers, same role as DS for the fields. The equalizers are integrated with the same RK2 midpoint/full scheme. Note the size is `N*2` as equalizers are always **2 per couple**, regardless of D. (The header indeed prints `Neq=2*N`.)
 
 #### Pump and Phase
 
@@ -317,6 +330,7 @@ This is how the injected "pump" is stored, per hyperspin:
 
 - `cos_phi`, `sin_phi` *(N each)* — `cos(phi[a])` and `sin(phi[a])` precomputed once at startup by `precompute_trig()` (since `phi` is constant during the run), so the hot RK2 loop never calls `cos()`/`sin()`.
 - `inv_sqrtS2` *(N)* — reusable scratch holding `1/sqrt(S2(a))`; computed in `compute_observables` whenever `compute_H=1` and shared by the H and magnetization passes.
+- `JS_re`, `JS_im` *(N*D each)* — the J*S product, computed once per RK2 phase by `compute_coupling_product_flat()`.
 
 #### Sparse Coupling
 
@@ -338,7 +352,7 @@ Only present when needed:
 
 For the memory-use reports:
 
-- `startup_heap_B`, `steady_heap_B` *(unsigned long)* — peak heap after matrix generation and steady-state heap after I/O buffers, measured via `mallinfo2()`. Reported by `print_memory_peak()`.
+- `startup_heap_B`, `steady_heap_B` *(unsigned long)* — heap snapshot after random-graph generation (0 in lattice and file modes) and steady-state heap after I/O buffers, measured via `mallinfo2()`. Reported by `print_memory_peak()`.
 
 ---
 
@@ -346,9 +360,9 @@ For the memory-use reports:
 
 A small struct that bundles **ALL** the diagnostics so `compute_observables()` can return them in one shot:
 
-- `H` *(double)* — the Hamiltonian / energy. Only computed when `compute_H=1` (save-steps multiples, E-target runs, stability-check-aligned steps, final step); otherwise it is **0** and the `.c` skips `compute_observables()` entirely (v2.9 `compute_H` gate). The stability check reads the `H` computed one step earlier — always valid by construction.
+- `H` *(double)* — the Hamiltonian / energy. Only computed when `compute_H=1` (save-steps multiples, E-target runs, stability-check-aligned steps, final step); otherwise it is **0** and the `.c` skips `compute_observables()` entirely (the `compute_H` gate). The stability check reads the `H` computed one step earlier — always valid by construction.
 - `L`, `L0`, `Lc` *(double)* — the Lyapunov function `L` and its two pieces: `L0` (not interacting part) and `Lc` (coupling / interaction). Only computed when `compute_full=1`.
-- `dL` *(double)* — `(L - L_old)/dt`, the time-derivative of L. Only when `compute_full=1`.
+- `dL` *(double)* — `(L - L_old)/dt`, where `L_old` is L at the previous save step: the time-derivative of L for `save_steps = 1`, otherwise dL/dt·`save_steps`. Only when `compute_full=1`.
 - `m` *(double)* — average magnetization. Only when `compute_full=1`.
 - `DS2` *(double)* — the average variance of the field amplitudes (mean of `|S|²` minus the square of its mean, `/N`). Only when `compute_full=1`.
 
@@ -384,7 +398,7 @@ The flat arrays are indexed through a set of macros. They encapsulate the row-ma
 
 ### Hyperspin Component Access
 
-`(a = spin 0..N-1, j = component 0..D-1)`
+`(a = hyperspin 0..N-1, j = component 0..D-1)`
 
 - `S_RE(s, a, j)` → `s->S_re[(a)*D + j]`
 - `S_IM(s, a, j)` → `s->S_im[(a)*D + j]`
@@ -399,7 +413,7 @@ Same shape:
 
 ### Equalizer Access
 
-`(a = spin, k = 0 or 1)` — note the stride is **2**, not D for them:
+`(a = hyperspin, k = 0 or 1)` — note the stride is **2**, not D for them:
 
 - `Y_RE(s, a, k)`, `Y_IM(s, a, k)` → `Y_re/Y_im[(a)*2 + k]`
 - `DY_RE(s, a, k)`, `DY_IM(s, a, k)` → `DY_re/DY_im[(a)*2 + k]`
@@ -431,13 +445,13 @@ Below, the functions are grouped the same way the file groups them. Each one is 
 
 ---
 
-**`void print_header_and_ini_parameters(filename, N, D, initial_type, NS, Amax, phim, dphi, g, beta, hm, dh, Dh, pth, deq, tmax, dt, t_coup, t_eq, t_pump, save_dyn, new_coupling, prob_coup, prob_pm_re, prob_pm_im, coup_phase, type_coup, E_target, E_target_tol, stop_at_E_target, stop_when_stable, allowed_H_change, steps_for_update, stable_window, relative_H_change, buffer_size, flush_interval, num_threads, save_steps, compute_eigenvalues, lattice_d, lattice_NL, lattice_bc)`**
+**`void print_header_and_ini_parameters(filename, N, D, initial_type, NS, Amax, phim, dphi, g, beta, hm, dh, Dh, Dh2, pth, deq, tmax, dt, t_coup, t_eq, t_pump, t_pump2, save_dyn, new_coupling, prob_coup, prob_pm_re, prob_pm_im, coup_phase, type_coup, E_target, E_target_tol, stop_at_E_target, stop_when_stable, allowed_H_change, steps_for_update, stable_window, relative_H_change, buffer_size, flush_interval, num_threads, save_steps, compute_eigenvalues, lattice_d, lattice_NL, lattice_bc, t_hramp, n_hramp, Dt_hramp, Dhramp)`**
 
 Prints the nice ASCII-art banner and then echoes every simulation parameter in nicely sectioned blocks (system, cavity/equalization, coupling, time, pump threshold, end conditions, output files, buffered I/O, parallelization). It is purely cosmetic: it returns nothing and changes nothing, and its giant signature mirrors exactly the variables the `.c` parsed from the ini. One ordering detail worth keeping straight: the `.c` calls it **BEFORE** `srand()` is seeded, but **AFTER** the lattice override has already happened — step 2 of the `.c` workflow replaces `N` with `NL^d` before this function prints — so in lattice mode the banner already shows the final `N` that will actually be run.
 
 ---
 
-**`int parse_config(filename, &N, &D, &initial_type, &Amax, &phim, &dphi, &g, &beta, &hm, &dh, &Dh, &deq, &tmax, &dt, &t_coup, &t_eq, &t_pump, &save_dyn, &new_coupling, &prob_coup, &prob_pm_re, &prob_pm_im, &coup_phase, &type_coup, &E_target, &E_target_tol, &stop_at_E_target, &stop_when_stable, &allowed_H_change, &steps_for_update, &stable_window, &relative_H_change, &buffer_size, &flush_interval, &num_threads, &save_steps, output_dir, output_dir_sz, &compute_eigenvalues, &lattice_d, &lattice_NL, &lattice_bc)`**
+**`int parse_config(filename, &N, &D, &initial_type, &Amax, &phim, &dphi, &g, &beta, &hm, &dh, &Dh, &Dh2, &deq, &tmax, &dt, &t_coup, &t_eq, &t_pump, &t_pump2, &save_dyn, &new_coupling, &prob_coup, &prob_pm_re, &prob_pm_im, &coup_phase, &type_coup, &E_target, &E_target_tol, &stop_at_E_target, &stop_when_stable, &allowed_H_change, &steps_for_update, &stable_window, &relative_H_change, &buffer_size, &flush_interval, &num_threads, &save_steps, output_dir, output_dir_sz, &compute_eigenvalues, &lattice_d, &lattice_NL, &lattice_bc, &t_hramp, &n_hramp, &Dt_hramp, &Dhramp)`**
 
 Opens the ini file, reads every `key = value` line, and fills the corresponding variable through a pointer; it returns **0** on success and **1** if the file cannot be opened. It starts by loading the default for every parameter that has one:
 
@@ -453,6 +467,7 @@ Opens the ini file, reads every `key = value` line, and fills the corresponding 
 - `lattice_d` = 2, `lattice_NL` = 10, `lattice_bc` = 1
 - `initial_type` = 2
 - `prob_pm_re/im` = 0.5, `coup_phase` = 0
+- `Dh2` = 0, `t_pump2` = -1, `t_hramp` = -1, `n_hramp` = 0, `Dt_hramp` = 0, `Dhramp` = 0
 
 That is why the lattice parameters can be missing when you are running a random graph or an input matrix — the program just keeps the default.
 
@@ -488,12 +503,12 @@ Releases everything `allocate_system` and the coupling builders allocated. It fr
 
 **`void initialize_fields(system_state *s, double Amax, int initial_type)`**
 
-Draws the initial field and equalizer values uniformly in `[-Amax, Amax]` and then applies the `initial_type` constraint. For every spin `i` and component `j` it **ALWAYS** draws both a random real part and a random imaginary part (two `rand()` calls), and only THEN:
+Draws the initial field and equalizer values uniformly in `[-Amax, Amax]` and then applies the `initial_type` constraint. For every hyperspin `i` and component `j` it **ALWAYS** draws both a random real part and a random imaginary part (two `rand()` calls), and only THEN:
 
 - If `initial_type==0` — zeroes the imaginary part.
 - If `initial_type==1` — zeroes the real part.
 
-It does exactly the same for the equalizers. It never skips a draw, and **WHY that matters**: the global `rand()` stream is shared with the coupling-matrix generators, so if this function were "optimized" by skipping the unused draw, it would change how many `rand()` calls happen before the matrix generation, and the **SAME** seed would produce a **DIFFERENT** coupling matrix. That is why `initial_type=2` is byte-for-byte identical to older versions, and why changing `initial_type` does **NOT** change the matrix. The `.c` validates `initial_type` before calling, so this function can assume it is already 0, 1 or 2.
+It does exactly the same for the equalizers. It never skips a draw, and **WHY that matters**: the global `rand()` stream is shared with the lattice generator, so if this function were "optimized" by skipping the unused draw, it would change how many `rand()` calls happen before the lattice generation, and the **SAME** seed would produce a **DIFFERENT** lattice matrix. That is why changing `initial_type` does **NOT** change the matrix. The `.c` validates `initial_type` before calling, so this function can assume it is already 0, 1 or 2.
 
 ---
 
@@ -513,9 +528,15 @@ Applies the pump modification: it adds `hmod[i]` onto `h[i]` for every `i`. `s->
 
 ---
 
+**`void ramp_pump(system_state *s, double Dhramp)`**
+
+Adds `Dhramp` to every `h[i]`. The `.c` calls it once per ramp step, `n_hramp` times, starting at `t_hramp` and then every `Dt_hramp`.
+
+---
+
 **`void precompute_trig(system_state *s)`**
 
-Computes `cos(phi[i])` and `sin(phi[i])` for every `i` into the scratch arrays `cos_phi`/`sin_phi`: a simple loop of the two transcendentals per spin. It is called **once at startup** (right after `initialize_pump`, before the dynamics loop), so the hot RK2 core never calls the slow `cos()`/`sin()` itself — `phi` never changes during the run.
+Computes `cos(phi[i])` and `sin(phi[i])` for every `i` into the scratch arrays `cos_phi`/`sin_phi`: a simple loop of the two transcendentals per hyperspin. It is called **once at startup** (right after `initialize_pump`, before the dynamics loop), so the hot RK2 core never calls the slow `cos()`/`sin()` itself — `phi` never changes during the run.
 
 ---
 
@@ -525,7 +546,7 @@ The biggest, subtlest family. There are generically **FOUR** ways to get the cou
 
 #### Hermitian Convention
 
-- `J` is Hermitian: `J(b,a) = conjugate(J(a,b))`. The code only ever stores or creates the **UPPER triangle**, meaning `J(a,b)` for `a<b`, and derives the lower triangle by conjugation.
+- `J` is Hermitian: `J(b,a) = conjugate(J(a,b))`. The code only ever creates the **UPPER triangle**, meaning `J(a,b)` for `a<b`, and derives the lower triangle by conjugation. The edge list stores only the upper triangle; the CSR stores both.
 - A single coupling `(a,b)` has a real part and an imaginary part. In the code the upper-triangle value is written as `J = J1 + i*J2`.
 - The **EDGE list** stores that upper-triangle value as `(edge_a, edge_b)` with `edge_a < edge_b`, and its `Jr + i*Ji` is exactly `J(edge_a, edge_b)`. So reading an edge gives you the upper triangle directly.
 
@@ -537,13 +558,13 @@ Coupling magnitudes are scaled by the expected degree so the total coupling stre
 - `type_coup 1` (imag only): `dJR = 0`, `dJI = 1/(N*prob_coup)`
 - `type_coup 2` (both): `dJR = dJI = 1/(sqrt(2)*N*prob_coup)`, the `sqrt(2)` keeping `|J| = 1/(N*prob_coup)`, the same strength as the single-component cases
 
-For the lattice, `N*prob_coup` is replaced by `degree*prob_coup` where `degree = 2*lattice_d`. `prob_coup` appears because it is the expected number of advanced-neighbour pairings: in the random case that means `prob_coup*n(n-1)/2` edges, an average degree of about `N*prob_coup`.
+For the lattice, `N*prob_coup` is replaced by `degree*prob_coup` where `degree = 2*lattice_d`. `prob_coup` appears because it is the probability that an edge exists: in the random case that means about `prob_coup*N(N-1)/2` edges, an average degree of about `N*prob_coup`.
 
 ---
 
 **`void initialize_J_Hermitian_Binary_Random(system_state *s, prob_pm_re, prob_pm_im, prob_coup, type_coup)`**
 
-The **LEGACY** dense random-graph generator: it builds the full NxN `J` in the dense arrays and writes `Data_Matrix.dat`. It is the old version, kept for reference, and it is the one whose matrix layout the dense file format matches. It zeroes the diagonal, then loops over each pair `(i,j)` with `j < i` and flips an existence coin: the edge is present with probability `prob_coup`. If present, it draws two independent signs (real sign from `prob_pm_re`, imaginary sign from `prob_pm_im`), sets `J1 = dJR*sign_re` and `J2 = -dJI*sign_im`, and writes the LOWER-triangle element `(i,j)` as `(J1, -J2)` and the UPPER-triangle element `(j,i)` as `(J1, +J2)`, exactly what Hermiticity requires (lower triangle = conjugate of upper). It uses the system `rand()` and writes `Data_Matrix.dat` in the dense two-numbers-per-element row format.
+The **LEGACY** dense random-graph generator: it builds the full NxN `J` in the dense arrays and writes `Data_Matrix.dat`. It is kept for reference, and it is the one whose matrix layout the dense file format matches. It zeroes the diagonal, then loops over each pair `(i,j)` with `j < i` and flips an existence coin: the edge is present with probability `prob_coup`. If present, it draws two independent signs (real sign from `prob_pm_re`, imaginary sign from `prob_pm_im`), sets `J1 = dJR*sign_re` and `J2 = -dJI*sign_im`, and writes the LOWER-triangle element `(i,j)` as `(J1, -J2)` and the UPPER-triangle element `(j,i)` as `(J1, +J2)`, exactly what Hermiticity requires (lower triangle = conjugate of upper). It uses the system `rand()` and writes `Data_Matrix.dat` in the dense two-numbers-per-element row format.
 
 *Watch out:* this is a dense O(N²) function, and memory-hungry for that reason. The current `.c` does **NOT** call it for generation — the real random-graph path is the sparse generator below.
 
@@ -559,7 +580,7 @@ The normalization first, following the family convention (expected degree ~N\*pr
 - `type_coup 1` → `dJR = 0`, `dJI = 1/(N*prob_coup)`
 - `type_coup 2` → `dJR = dJI = 1/(sqrt(2)*N*prob_coup)`
 
-**Pass 1 (count)** seeds `rand_r` from `NS` and loops over every pair `(i,j)` with `j < i`. Each pair draws ONE random number: the edge exists if `rand_r()/RAND_MAX < prob_coup`. If it does, two MORE draws are taken and **DISCARDED** (burned, not stored), and `row_count[i]++`, `row_count[j]++`, `nnz += 2` — the upper-triangle entry in row `i` plus the lower-triangle conjugate in row `j`. Burning the two sign draws is the key trick: Pass 2 also consumes them, so both passes see the **IDENTICAL** `rand_r` sequence and reach exactly the same edge decisions. Then `num_edges = nnz/2` (two CSR entries per undirected edge), the arrays are allocated (`csr_row_ptr` of size N+1, `csr_col_idx`/`csr_Jr`/`csr_Ji` of size nnz, `edge_a`/`edge_b`/`edge_Jr`/`edge_Ji` of size num_edges), and `csr_row_ptr` is built as the prefix sums of `row_count`: `csr_row_ptr[i+1] = csr_row_ptr[i] + row_count[i]`.
+**Pass 1 (count)** seeds `rand_r` from `NS` and loops over every pair `(i,j)` with `j < i`. Each pair draws ONE random number: the edge exists if `rand_r()/RAND_MAX < prob_coup`. If it does, two MORE draws are taken and **DISCARDED** (burned, not stored), and `row_count[i]++`, `row_count[j]++`, `nnz += 2` — the lower-triangle entry in row `i` plus the upper-triangle entry in row `j`. Burning the two sign draws is the key trick: Pass 2 also consumes them, so both passes see the **IDENTICAL** `rand_r` sequence and reach exactly the same edge decisions. Then `num_edges = nnz/2` (two CSR entries per undirected edge), the arrays are allocated (`csr_row_ptr` of size N+1, `csr_col_idx`/`csr_Jr`/`csr_Ji` of size nnz, `edge_a`/`edge_b`/`edge_Jr`/`edge_Ji` of size num_edges), and `csr_row_ptr` is built as the prefix sums of `row_count`: `csr_row_ptr[i+1] = csr_row_ptr[i] + row_count[i]`.
 
 **Pass 2 (fill)** re-seeds `rand_r` from `NS` **AGAIN** and re-runs the identical pair loop, so every edge decision comes back exactly. For each existing edge the two sign draws are now **USED**: `sign_re = (rand_r/RAND_MAX < prob_pm_re)` and `sign_im` similarly, each turned into +/- 1 via `coup_sign = -1 + 2*sign`, giving `J1 = dJR*coup_sign_re` and `J2 = -dJI*coup_sign_im`. The coupling is then written in three consistent places. Since `j < i`, the pair `(j,i)` is the upper triangle:
 
@@ -575,9 +596,9 @@ The two CSR entries are complex conjugates, so J stays Hermitian. Finally it wri
 
 **`void initialize_J_Hermitian_Lattice(system_state *s, lattice_d, lattice_NL, lattice_bc, prob_pm_re, prob_pm_im, prob_coup, type_coup)`**
 
-Builds a d-dimensional hypercubic lattice of couplings, `NL` per side, so `N = NL^d`. The Hermitian + normalization structure is the same as the random case, but the degree is `2*d` instead of about `N*prob_coup` (see the Normalization section above), and it handles periodic (PBC) versus open (OBC) boundary conditions. First it validates that the `N` the `.c` gave equals `NL^d`; if not, it prints an error and returns. It uses two small coordinate helpers (`index_to_coord` / `coord_to_index` — described right below) that map a flat spin index to a d-tuple and back, row-major with the last dimension fastest.
+Builds a d-dimensional hypercubic lattice of couplings, `NL` per side, so `N = NL^d`. The Hermitian + normalization structure is the same as the random case, but the degree is `2*d` instead of about `N*prob_coup` (see the Normalization section above), and it handles periodic (PBC) versus open (OBC) boundary conditions. First it validates that the `N` the `.c` gave equals `NL^d`; if not, it prints an error and returns. It uses two small coordinate helpers (`index_to_coord` / `coord_to_index` — described right below) that map a flat hyperspin index to a d-tuple and back, with `coord[0]` the fastest-varying.
 
-**Pass 1 (decide)** runs, for each spin `a` and each dimension, in both directions. The forward neighbor is `coord[dim]+1`, the backward is `coord[dim]-1`. PBC wraps the coordinate (`>= NL` goes to 0, `< 0` goes to `NL-1`); OBC marks the direction invalid instead. Whenever a valid neighbor `b > a` is found (that is the upper triangle), it draws existence from `prob_coup` and, if present, the two signs from `prob_pm_re`/`prob_pm_im`, bumping the row counts and `total_edges`. Crucially, **ALL** decisions — even the invalid and the non-existing ones — are appended to a packed `edge_decisions` array, so Pass 2 reproduces them without re-drawing. That is what keeps the lattice generator deterministic in the global `rand()` stream. It then builds the CSR prefix sum, allocates the CSR + edge arrays, and zeroes the dense J if it was allocated (`J_allocated`).
+**Pass 1 (decide)** runs, for each hyperspin `a` and each dimension, in both directions. The forward neighbor is `coord[dim]+1`, the backward is `coord[dim]-1`. PBC wraps the coordinate (`>= NL` goes to 0, `< 0` goes to `NL-1`); OBC marks the direction invalid instead. Whenever a valid neighbor `b > a` is found (that is the upper triangle), it draws existence from `prob_coup` and, if present, the two signs from `prob_pm_re`/`prob_pm_im`, bumping the row counts and `total_edges`. Crucially, **ALL** decisions — even the invalid and the non-existing ones — are appended to a packed `edge_decisions` array, so Pass 2 reproduces them without re-drawing. That is what keeps the lattice generator deterministic in the global `rand()` stream. It then builds the CSR prefix sum, allocates the CSR + edge arrays, and zeroes the dense J if it was allocated (`J_allocated`).
 
 **Pass 2 (fill)** walks the same loops, uses the stored decisions to fill the CSR rows (with the same upper/lower Hermitian mirroring as before) and the edge list, and fills the dense J if present. As in the sparse generator, the stored edge value is `(dJR*sign_re, -dJI*sign_im)` — the upper-triangle `J(edge_a, edge_b)`. It finishes by writing the sparse file, and the dense file if the dense J exists.
 
@@ -585,7 +606,7 @@ Builds a d-dimensional hypercubic lattice of couplings, `NL` per side, so `N = N
 
 Here are the two coordinate helpers (the lattice's address book; you rarely need them outside lattice mode):
 
-- `static inline void index_to_coord(int idx, int NL, int d, int *coord)` — folds a flat index into d coordinates via repeated `% NL` and `/ NL` (last dimension fastest), filling the passed int array.
+- `static inline void index_to_coord(int idx, int NL, int d, int *coord)` — folds a flat index into d coordinates via repeated `% NL` and `/ NL` (`coord[0]` fastest), filling the passed int array.
 - `static inline int coord_to_index(const int *coord, int NL, int d)` — the inverse: accumulates `coord[dim] * stride` with `stride *= NL` each dimension, returning the flat index.
 
 ---
@@ -594,7 +615,7 @@ Here are the two coordinate helpers (the lattice's address book; you rarely need
 
 Reads a coupling matrix from a DENSE-format file (`Data_Matrix.dat`: a raw N × N grid, two numbers per element, real and imaginary) straight INTO the dense arrays `J_re`/`J_im`; the sparse structures are **NOT** touched. It is a plain double `fopen`/`fscanf` loop reading `%lf %lf` into `J_RE(s,i,j)` and `J_IM(s,i,j)` for every element — no counting, no two-pass trick.
 
-*Watch out:* this is the OLD v8-era reader and is **NOT** called by the current `Complex_HSM.c` — the `.c` always goes through `initialize_J_Sparse_From_(Sparse_)File` below. It is kept as a legacy utility; its sibling `initialize_J_Sparse_From_File` is the one that turns a dense-format file into the sparse structures the current code actually uses.
+*Watch out:* this is a legacy reader and is **NOT** called by the current `Complex_HSM.c` — the `.c` always goes through `initialize_J_Sparse_From_(Sparse_)File` below. It is kept as a legacy utility; its sibling `initialize_J_Sparse_From_File` is the one that turns a dense-format file into the sparse structures the current code actually uses.
 
 ---
 
@@ -612,7 +633,7 @@ Reads a coupling matrix from a SPARSE-format file (`Data_Matrix_sparse.dat`: a h
 
 **`void build_sparse_coupling(system_state *s)`**
 
-Rebuilds the sparse CSR + edge structures **FROM** the dense arrays — the reverse direction of `fill_dense_from_sparse` — and is used when a dense matrix already exists. Pass 1 scans the dense J, counts the non-zero off-diagonals per row and sizes everything; Pass 2 scans again and fills the CSR and the edge list (for `a<b`). Essentially the same two-pass shape as the file readers, but the source is the in-memory dense J.
+Rebuilds the sparse CSR + edge structures **FROM** the dense arrays — the reverse direction of `fill_dense_from_sparse`. It is retained but no longer called by the current code. Pass 1 scans the dense J, counts the non-zero off-diagonals per row and sizes everything; Pass 2 scans again and fills the CSR and the edge list (for `a<b`). Essentially the same two-pass shape as the file readers, but the source is the in-memory dense J.
 
 ---
 
@@ -624,7 +645,7 @@ Fills the dense J arrays from the sparse edge list (sparse → dense). It is use
 
 **`void write_sparse_matrix_file(system_state *s, const char *filename)`**
 
-Writes the sparse edge list to a file: the header is `num_edges`, then one line per edge `a  b  Jr  Ji`. Every generator calls it. It requires the edge list to exist — it prints an error and returns if it does not.
+Writes the sparse edge list to a file: the header is `num_edges`, then one line per edge `a  b  Jr  Ji`. `initialize_J_Hermitian_Binary_Sparse()` and `initialize_J_Hermitian_Lattice()` call it, and so does the `.c` after a rotation. It requires the edge list to exist — it prints an error and returns if it does not.
 
 ---
 
@@ -636,7 +657,7 @@ Writes the dense J to a file (`Data_Matrix.dat`): a blank first line, then N row
 
 **`void apply_coupling_rotation(system_state *s, double coup_phase)`**
 
-Multiplies every coupling entry by the global phase `e^(i*coup_phase)` in place; this is the v2.7 `coup_phase` feature. If `coup_phase == 0` it returns immediately (a no-op). Otherwise it precomputes `rc = cos(phase)`, `rs = sin(phase)`, and for each edge turns the old value `(oldJr, oldJi)` into `(oldJr*rc - oldJi*rs, oldJr*rs + oldJi*rc)` — a rotation of the complex number by that angle. It then writes the rotated value into the edge list, into the CSR upper entry (row `a` → col `b`), into the CSR lower entry (row `b` → col `a`, as the conjugate `-newJi`), and into the dense J if allocated (again with the conjugate on the lower). Because it touches edge + CSR + (optionally) dense, all three representations stay consistent after the rotation. The `.c` then re-writes the matrix files to persist it. It should only be run **AFTER** the matrix is fully built — which is exactly where the `.c` calls it. *(This is a historical feature label; the v2.9 description is otherwise identical.)*
+Multiplies every coupling entry by the global phase `e^(i*coup_phase)` in place. If `coup_phase == 0` it returns immediately (a no-op). Otherwise it precomputes `rc = cos(phase)`, `rs = sin(phase)`, and for each edge turns the old value `(oldJr, oldJi)` into `(oldJr*rc - oldJi*rs, oldJr*rs + oldJi*rc)` — a rotation of the complex number by that angle. It then writes the rotated value into the edge list, into the CSR upper entry (row `a` → col `b`), into the CSR lower entry (row `b` → col `a`, as the conjugate `-newJi`), and into the dense J if allocated (again with the conjugate on the lower). Because it touches edge + CSR + (optionally) dense, all three representations stay consistent after the rotation. The `.c` then re-writes the matrix files to persist it. It should only be run **AFTER** the matrix is fully built — which is exactly where the `.c` calls it.
 
 ---
 
@@ -646,27 +667,27 @@ Multiplies every coupling entry by the global phase `e^(i*coup_phase)` in place;
 
 **`double S2_of_spin(system_state *s, int a)`**
 
-Returns the squared norm `|S(a)|^2 = sum_j (Re(S)^2 + Im(S)^2)` for one spin. A pure helper: it uses `s->D` so it loops over exactly the components, and the sum of squares is always `>= 0`. `compute_hyperspin_norm()` calls it for all spins.
+Returns the squared norm `|S(a)|^2 = sum_j (Re(S)^2 + Im(S)^2)` for one field. A pure helper: it uses `s->D` so it loops over exactly the components, and the sum of squares is always `>= 0`. `compute_hyperspin_norm()` calls it for all fields.
 
 ---
 
 **`double Y2eq_of_spin(system_state *s, int a)`**
 
-Returns the equalization "signed norm" of hyperspin `a`: `( |Y(a,0)|^2 - |Y(a,1)|^2 )`. This difference is what drives the equalizer dynamics — `Y0` 'wants' spin `a`, `Y1` 'wants' its neighbor, and the sign tells the direction. Note it **CAN** be negative, unlike `S2`, because it is a difference.
+Returns the equalization imbalance of the couple `(a, a+1)`: `( |Y(a,0)|^2 - |Y(a,1)|^2 )`. This difference drives the equalization term of the fields. Note it **CAN** be negative, unlike `S2`, because it is a difference.
 
 ---
 
 **`void compute_hyperspin_norm(system_state *s)`**
 
-Recomputes `s->S2[i] = S2_of_spin(s, i)` for all spins. It is called at initialization and at the end of every `RK2_step`, so the `S2` array is always current for the next step.
+Recomputes `s->S2[i] = S2_of_spin(s, i)` for all fields. It is called at initialization and at the end of every `RK2_step`, so the `S2` array is always current for the next step.
 
 ---
 
 **`void compute_coupling_product_flat(const system_state *s, const double *src_re, const double *src_im, double *out_re, double *out_im)`**
 
-Computes the sparse matrix-vector-like product `JS = J * src`: for every spin `a` and component `j`, `out[aD+j] = sum_b J(a,b) * src[bD+j]`. This is **THE** coupling matvec used in both halves of the RK2 step. It is called with either the current fields (`src = S`) for the midpoint, or the midpoint fields (`src = DS`) for the full update; `out` is always `JS`.
+Computes the sparse matrix-vector-like product `JS = J * src`: for every hyperspin `a` and component `j`, `out[aD+j] = sum_b J(a,b) * src[bD+j]`. This is **THE** coupling matvec used in both halves of the RK2 step. It is called with either the current fields (`src = S`) for the midpoint, or the midpoint fields (`src = DS`) for the full update; `out` is always `JS`.
 
-Over the outer spin loop `a` it zeroes `out[a]`, then walks row `a` of the CSR (the entries `k` in `row_ptr[a]..row_ptr[a+1]`); for each neighbor `b` with coupling `(Jr,Ji)` it accumulates over the components `j`:
+Over the outer hyperspin loop `a` it zeroes `out[a]`, then walks row `a` of the CSR (the entries `k` in `row_ptr[a]..row_ptr[a+1]`); for each neighbor `b` with coupling `(Jr,Ji)` it accumulates over the components `j`:
 
 - `out_re += Jr*src_re - Ji*src_im`
 - `out_im += Jr*src_im + Ji*src_re`
@@ -679,11 +700,11 @@ In words it applies the complex multiply `J*src`: real = `Jr*re - Ji*im`, imag =
 
 Advances the whole system by one time step `dt` using a second-order Runge-Kutta (the midpoint method). It updates `S`, `DS` (transiently), `Y`, `DY`, and refreshes `S2`. Two control flags turn the coupling term (`coup_control`) and the equalization term (`eq_control`) on or off — they are **0** until the corresponding activation time, then **1** for the rest of the run.
 
-**MIDPOINT PHASE:** it first computes `J*S` once into `JS` (`compute_coupling_product_flat` with `src=S`). Then, for each spin `a` in parallel, it finds the ring neighbors `left = (a+N-1)%N` and `next = (a+1)%N` — **NOTE** the equalization topology is a **RING**: spin `a`'s equalizers talk to its immediate left and right cyclic neighbors, **NOT** the coupling lattice; coupling and equalization are independent graphs. It pulls the precomputed `cos_phi[a]`/`sin_phi[a]` from the trig scratch, computes spin-independent coefficients once per spin from the NO-current couplings (the `f0` real/imag pieces involving `h`, `g`, `beta*S2`, and the cross term from `phi`, each halved by `0.5` for the midpoint), plus a single equalization coefficient `feq_coeff = 0.5*deq*( -Y2eq(left) + Y2eq(a) )`. Then, for each component `j`, it builds the three right-hand side pieces (`f0` non-interacting, `fL` linear if `coup_control` → `0.5*JS`, `feq = feq_coeff*S`) and writes the midpoint `DS(a,j) = S(a,j) + 0.5*dt*(f0R + fLR + feqR)` (and the imaginary part similarly). So `DS` is the half-step prediction.
+**MIDPOINT PHASE:** it first computes `J*S` once into `JS` (`compute_coupling_product_flat` with `src=S`). Then, for each hyperspin `a` in parallel, it finds the ring neighbors `left = (a+N-1)%N` and `next = (a+1)%N` — **NOTE** the equalization topology is a **RING**: the equalizers of hyperspin `a` talk to its immediate left and right cyclic neighbors, **NOT** the coupling lattice; coupling and equalization are independent graphs. It pulls the precomputed `cos_phi[a]`/`sin_phi[a]` from the trig scratch, computes coefficients once per hyperspin, shared by all components (the `f0` real/imag pieces involving `h`, `g`, `beta*S2`, and the cross term from `phi`, with the factors of the equations; the half-step itself comes from the `0.5*dt` below), plus a single equalization coefficient `feq_coeff = 0.5*deq*( -Y2eq(left) + Y2eq(a) )`. Then, for each component `j`, it builds the three right-hand side pieces (`f0` non-interacting, `fL` linear if `coup_control` → `0.5*JS`, `feq = feq_coeff*S`) and writes the midpoint `DS(a,j) = S(a,j) + 0.5*dt*(f0R + fLR + feqR)` (and the imaginary part similarly). So `DS` is the half-step prediction.
 
 The equalizer midpoint: if `eq_control` it computes `diffS2 = 0.5*deq*( -S2(a) + S2(next) )` and writes `DY(a,0) = Y(a,0) + 0.5*dt*diffS2*Y(a,0)` and `DY(a,1) = Y(a,1) - 0.5*dt*diffS2*Y(a,1)` — the signs follow from the `Y0`/`Y1` signed-norm structure. Finally it computes the midpoint norms `DS2` in a small sequential loop (not worth parallelizing).
 
-**UPDATE PHASE:** it computes `J*DS` once into `JS` (the source is now the midpoint), then repeats the same per-spin structure but with `DS` as the state: the coefficients use the `DS2` norms, the equalization coefficient uses the `DY` signed norms of `left` and `a` (computed inline, not via `Y2eq_of_spin`), and the full-step update is `S(a,j) += dt*(f0R + fLR + feqR)`. This is the RK2 completion — it takes the slope evaluated at the midpoint and applies a full `dt` step from the **ORIGINAL** `S`. The equalizers get their full update with the `DY`-based `diffS2`, and finally `compute_hyperspin_norm()` refreshes `S2` for the next step / the `H` computation. Both phases parallelize over spins `a` with the `if(use_parallel)` gate; the ring topology means each spin only touches its own neighbours' norms, which are read before being written in this phase, keeping the region race-free (spin `a`'s equalizers are only written by spin `a`; `left`/`next` are only **READ**).
+**UPDATE PHASE:** it computes `J*DS` once into `JS` (the source is now the midpoint), then repeats the same per-hyperspin structure but with `DS` as the state: the coefficients use the `DS2` norms, the equalization coefficient uses the `DY` signed norms of `left` and `a` (computed inline, not via `Y2eq_of_spin`), and the full-step update is `S(a,j) += dt*(f0R + fLR + feqR)`. This is the RK2 completion — it takes the slope evaluated at the midpoint and applies a full `dt` step from the **ORIGINAL** `S`. The equalizers get their full update with the `DY`-based `diffS2`, and finally `compute_hyperspin_norm()` refreshes `S2` for the next step / the `H` computation. Both phases parallelize over hyperspins `a` with the `if(use_parallel)` gate; the ring topology means each hyperspin only touches its own neighbours' norms, which are read before being written in this phase, keeping the region race-free (the equalizers at index `a` are only written by iteration `a`; `left`/`next` are only **READ**).
 
 ---
 
@@ -711,21 +732,21 @@ It fills only the lower triangle (`j <= i`) and mirrors to the upper, then calls
 
 **`double h_threshold(int N, double g, double *J_re, double *J_im)`**
 
-Finds the pump threshold `hth` — the smallest uniform pump for which the linearized system just becomes unstable (`lmax` crosses zero) — and prints both `hth` and `lmax`. It is deliberately brute-force (see the `.c` guide's note): start `h_val = 0`, step `dh_val = 1e-5`, cap `hmax = 5`, then loop over the SAME `2N × 2N` `Lmat` structure as `Linearized_Max_Eigenvalue` but with `h_val` in the diagonal: build it, get `lmax` via `max_eigenvalue_symm()`, and keep stepping `h_val += dh_val` while `lmax <= 0`. Stop when `lmax` finally goes positive (or `h_val` reaches `hmax`), and return `hth = h_val - dh_val` — one step back, the last `h` with `lmax <= 0`. That is a brute-force linear sweep, not root-finding.
+Finds the pump threshold `hth` — the smallest uniform pump for which the linearized system just becomes unstable (`lmax` crosses zero) — and prints both `hth` and `lmax`. It is deliberately brute-force (see the `.c` guide's note): start `h_val = 0`, step `dh_val = 1e-5`, cap `hmax = 5`, then loop over the SAME `2N × 2N` `Lmat` structure as `Linearized_Max_Eigenvalue` but with `h_val` in the diagonal: build it, get `lmax` via `max_eigenvalue_symm()`, and keep stepping `h_val += dh_val` while `lmax <= 0`. Stop when `lmax` finally goes positive (or `h_val` reaches `hmax`), and return `hth = h_val - dh_val` — one step back from the loop's last increment, so the first `h` with `lmax > 0` (or about `hmax` if none is found). That is a brute-force linear sweep, not root-finding.
 
 ---
 
 **`observables compute_observables(system_state *s, double g, double beta, double dt, double *L_old, int compute_H, int compute_full)`**
 
-Computes the diagnostics with a two-level gate (the v2.9 restructure). When `compute_H = 0` and `compute_full = 0` the `.c` skips the call entirely (idle steps). When `compute_H = 1` and `compute_full = 0`, it computes exactly `H`. When `compute_full = 1` it also computes `L` (via `L0` and `Lc`), `dL`, `m`, and `DS2`, and returns an `observables` struct. The `.c` calls it every step with the appropriate flags: `compute_H = 1` on save-steps multiples, E-target runs, stability-check-aligned steps and the final step (the stop conditions need `H`); `compute_full = 1` only on `save_steps` multiples (the v2.4 optimization).
+Computes the diagnostics with a two-level gate. When `compute_H = 0` and `compute_full = 0` the `.c` skips the call entirely (idle steps). When `compute_H = 1` and `compute_full = 0`, it computes exactly `H`. When `compute_full = 1` it also computes `L` (via `L0` and `Lc`), `dL`, `m`, and `DS2`, and returns an `observables` struct. The `.c` calls it only on steps that need it, with the appropriate flags: `compute_H = 1` on save-steps multiples, E-target runs, stability-check-aligned steps and the final step (the stop conditions need `H`); `compute_full = 1` only on `save_steps` multiples.
 
-First, in parallel, it fills the shared scratch `inv_sqrtS2[i] = 1/sqrt(S2(i))`, computed once so both the `H` pass and the magnetization pass reuse it. If `compute_full`, a merged spin pass computes `L0` and the amplitude-variance pieces in **ONE** loop (this is the "merged loops reuse intermediates" optimization). For each `a` it accumulates `Lksqsum = sum_j (Re^2 - Im^2)` over the components, and:
+First, in parallel, it fills the shared scratch `inv_sqrtS2[i] = 1/sqrt(S2(i))`, computed once so both the `H` pass and the magnetization pass reuse it. If `compute_full`, a merged field pass computes `L0` and the amplitude-variance pieces in **ONE** loop (this is the "merged loops reuse intermediates" optimization). For each `a` it accumulates `Lksqsum = sum_j (Re^2 - Im^2)` over the components, and:
 
 - `L0 += -0.5*( 0.5*h[a]*Lksqsum - g*s2 - 0.5*beta*s2^2 )` (summed with a minus, since the code accumulates `L0_acc` with `-=`)
 
 while also accumulating `mean_S2` and `mean2_S2`. Then `o.L0 = L0_acc`, and the amplitude variance is `DS2 = |mean2_S2 - mean_S2^2|/N`.
 
-A merged EDGE pass (always run) computes `H` through the normalized fields `sR = S*inv_sqrtS2`:
+A merged EDGE pass (run whenever `compute_H=1`) computes `H` through the normalized fields `sR = S*inv_sqrtS2`:
 
 - `H_acc -= 2*( Jr*(sRp*sRq + sIp*sIq) - Ji*(sRp*sIq - sIp*sRq) )` summed over the edge's components
 
@@ -733,11 +754,17 @@ and whenever `compute_full` it ALSO accumulates:
 
 - `Lc_acc -= ( Jr*(srp*srq + sip*siq) + Ji*(sip*srq - srp*siq) )`
 
-So `H` (whenever `compute_H=1`, the v2.9 gate) and `Lc` (only when `compute_full`) are computed in **THE SAME** edge loop — the merge optimization. `H` and `Lc` are stored; `Lc` stays **0** unless `compute_full`.
+So `H` (whenever `compute_H=1`) and `Lc` (only when `compute_full`) are computed in **THE SAME** edge loop — the merge optimization. `H` and `Lc` are stored; `Lc` stays **0** unless `compute_full`.
 
-If `compute_full`: `o.L = o.L0 + o.Lc`, `o.dL = (o.L - *L_old)/dt`, and `*L_old = o.L` — the caller passes `&L_old` so `L` keeps its previous value for the derivative, which is why the `.c` declares a persistent `L_old`. Then the magnetization pass: it is parallelized over spins `a` (**NOT** over the D components — an OpenMP 4.5 VLA array reduction `compR[:D]`, `compI[:D]` accumulates `S*inv_sqrtS2` per component), and finally `m = sqrt( sum_k (compR^2 + compI^2) ) / N`.
+If `compute_full`: `o.L = o.L0 + o.Lc`, `o.dL = (o.L - *L_old)/dt`, and `*L_old = o.L` — the caller passes `&L_old` so `L` keeps its previous value for the derivative, which is why the `.c` declares a persistent `L_old`. `L_old` therefore holds L from the previous save step, so `dL` is the derivative only for `save_steps = 1`. Then the magnetization pass: it is parallelized over hyperspins `a` (**NOT** over the D components — an OpenMP 4.5 VLA array reduction `compR[:D]`, `compI[:D]` accumulates `S*inv_sqrtS2` per component), and finally `m = sqrt( sum_k (compR^2 + compI^2) ) / N`.
 
-At the end it returns the filled `observables` struct. `H` and `Lc` are always set; the rest are only meaningfully set when `compute_full = 1` (they read as **0** otherwise — the `.c` only uses them on save steps anyway).
+At the end it returns the filled `observables` struct. `H` is set whenever `compute_H=1`; `Lc` and the rest are only meaningfully set when `compute_full = 1` (they read as **0** otherwise — the `.c` only uses them on save steps anyway).
+
+---
+
+**`int system_is_real(system_state *s)`**
+
+Returns **1** if any field component has `|Im| > 1e-9`, and **0** otherwise, so 1 means complex despite the name. The `.c` uses it to print whether the final state is real or complex.
 
 ---
 
@@ -762,9 +789,9 @@ Each opened file gets a `malloc`'d buffer of `buffer_size` and is switched to fu
 
 Writes one time-sample of the observables (and, for `save_dyn = 1`, the full field states) to the open files. The `.c` calls it on `save_steps` multiples with the values that `compute_observables` returned:
 
-- **save\_dyn 1:** writes the FULL field state (`t`, spin_id, `S2` plus all Re/Im per spin) to `f_fields` and the equalizer state (`t`, then the Re(Y) pairs, then the Im(Y) pairs) to `f_equalizers`, plus the `H` row and the Lyapunov row
+- **save\_dyn 1:** writes the FULL field state (`t`, `spin_id`, `S2` plus all Re/Im per field) to `f_fields` and the equalizer state (`t`, then the Re(Y) pairs, then the Im(Y) pairs, even-indexed couples only) to `f_equalizers`, plus the `H` row and the Lyapunov row
 - **save\_dyn 1 or 2:** writes `H` to `f_hamilton` and `(t, L, dL, L0, Lc)` to `f_lyapunov`
-- **save\_dyn 3:** writes `(t, H, L/N, m, DS2)` to `f_h_ly_m_ds2` — note `L` is divided by `N` here (per-spin Lyapunov), and the columns are exactly `t H Ly/N <m> <DS2>` as the header says
+- **save\_dyn 3:** writes `(t, H, L/N, m, DS2)` to `f_h_ly_m_ds2` — note `L` is divided by `N` here (per-field Lyapunov), and the columns are exactly `t H Ly/N <m> <DS2>` as the header says
 
 ---
 
@@ -782,7 +809,7 @@ Writes one time-sample of the observables (and, for `save_dyn = 1`, the full fie
 
 **`void save_final_config(io_context *ctx, system_state *s, double t, int NS)`**
 
-Appends the final configuration to `Data_Final.dat`: a single row `NS  T  ` followed, for every spin, by `S2(a)` and the full field values (Re/Im per component), then flushes. This is the "final state" row in every mode (in `save_dyn = 0` it is the **ONLY** thing written).
+Appends the final configuration to `Data_Final.dat`: a single row `NS  T  ` followed, for every hyperspin, by `S2(a)` and the full field values (Re/Im per component), then flushes. This is the "final state" row in every mode (in `save_dyn = 0` it is the **ONLY** thing written).
 
 ---
 
@@ -844,13 +871,14 @@ If you read Part 1's numbered workflow, this tells you which library function ea
 | Step 15 | `initialize_pump(&s, s.hmod, Dh, 0)` |
 | Step 16 | `init_output_files()` |
 | Step 17 | `print_memory_peak()` |
-| Step 20.2 | `modify_pump()` |
+| Step 20.2 | `modify_pump()`, `ramp_pump()` |
 | Step 20.3 | `compute_observables()`; `save_output_files()`; `flush_output_files()` |
 | Step 20.4 | `RK2_step()` |
 | Step 22 | `save_final_config()` |
 | Step 23 | `write_metadata()` |
-| Step 24 | `close_output_files()` |
-| Step 26 | `free_system()` (+ the `fclose` of `f_final` in `save_dyn=0` mode) |
+| Step 24 | `close_output_files()` (or the `fclose` of `f_final` in `save_dyn=0` mode) |
+| Step 25 | `system_is_real()` |
+| Step 26 | `free_system()` |
 
 ---
 
@@ -861,13 +889,13 @@ Memorize these — they appear in every `malloc`/`calloc`:
 | Size | Arrays | Notes |
 |------|--------|-------|
 | **N\*D** | `S_re`, `S_im`, `DS_re`, `DS_im`, `JS_re`, `JS_im` | Field arrays |
-| **N** | `S2`, `DS2`, `h`, `hmod`, `phi`, `cos_phi`, `sin_phi`, `inv_sqrtS2` | Per-spin |
-| **N\*2** | `Y_re`, `Y_im`, `DY_re`, `DY_im` | Equalizers — ALWAYS 2 per spin |
+| **N** | `S2`, `DS2`, `h`, `hmod`, `phi`, `cos_phi`, `sin_phi`, `inv_sqrtS2` | Per-hyperspin |
+| **N\*2** | `Y_re`, `Y_im`, `DY_re`, `DY_im` | Equalizers — ALWAYS 2 per couple |
 | **N\*N** | `J_re`, `J_im` | Dense J — **ONLY** if `compute_eigenvalues` |
 | **N+1** | `csr_row_ptr` | CSR row pointer |
 | **nnz** | `csr_col_idx`, `csr_Jr`, `csr_Ji` | `nnz = 2*num_edges` |
 | **num\_edges** | `edge_a`, `edge_b`, `edge_Jr`, `edge_Ji` | `num_edges = nnz/2` |
-| **2\*N** | linearized / threshold matrices | 2N real DOF |
+| **2N × 2N** | linearized / threshold matrices | 2N real DOF |
 
 ---
 
