@@ -39,7 +39,7 @@ The machine maps to a **hyperspin Hamiltonian** H — an energy functional defin
 H = H({Ŝ_a})            (depends only on hyperspin configuration, not field magnitudes)
 ```
 
-The dynamics drives the fields toward configurations that minimize H. A more negative H corresponds to a more stable hyperspin configuration; the global minimum of H is the **ground state**.
+The dynamics drives the fields toward configurations that minimize H. A lower value of H corresponds to a more stable hyperspin configuration; the global minimum of H is the **ground state**. Notice that low-energy minima of H are often negative energy values.
 
 The **coupling matrix** J (N×N, Hermitian) defines pairwise interactions. It can be generated as a **random graph** (`new_coupling=1`), a **d-dimensional hypercubic lattice** (`new_coupling=2`), or **loaded from a file** (`new_coupling=0`). Output is available in both a sparse edge-list format (`Data_Matrix_sparse.dat`) and a dense N×N grid (`Data_Matrix.dat`), depending on the `compute_eigenvalues` setting.
 
