@@ -1,4 +1,4 @@
-//last update: 18/09/2026 — v2.9 (compute_H gating + trig-once restructure; per-region OpenMP retained)
+//last update: 03/11/2026 — v2.9 (compute_H gating + trig-once restructure; per-region OpenMP retained)
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -184,7 +184,7 @@ void print_header_and_ini_parameters(const char *filename, int N, int D, int ini
     printf("//   |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |    //\n");
     printf("//      v           v  v     v     v  v        v     v  v     v  v    //\n");
     printf("//                                                                    //\n");
-    printf("//                                   last updated: 18/09/2026 — v2.9  //\n");
+    printf("//                                   last updated: 03/11/2026 — v2.9  //\n");
     printf("//                                               by T. Piacenti  :)   //\n");
     printf("////////////////////////////////////////////////////////////////////////\n\n");
 
@@ -1306,7 +1306,7 @@ void RK2_step(system_state *s, double dt, double g, double beta, double deq, int
         // Non-interacting coefficients (computed once per spin, reused across components)
         double f0_coeff_re = 0.5 * ((0.5 * s->h[a] * cphi - g) - beta * S2(s, a));
         double f0_coeff_im = 0.5 * (-(0.5 * s->h[a] * cphi + g) - beta * S2(s, a));
-        double f0_cross    = 0.5 * s->h[a] * sphi;
+        double f0_cross    = 0.5*0.5 * s->h[a] * sphi;
 
         // Equalization coefficient (computed once per spin)
         double feq_coeff = 0.0;
@@ -1381,7 +1381,7 @@ void RK2_step(system_state *s, double dt, double g, double beta, double deq, int
         // Non-interacting coefficients (using DS norms)
         double f0_coeff_re = 0.5 * ((0.5 * s->h[a] * cphi - g) - beta * DS2(s, a));
         double f0_coeff_im = 0.5 * (-(0.5 * s->h[a] * cphi + g) - beta * DS2(s, a));
-        double f0_cross    = 0.5 * s->h[a] * sphi;
+        double f0_cross    = 0.5*0.5 * s->h[a] * sphi;
 
         // Equalization coefficient (using DY)
         double feq_coeff = 0.0;

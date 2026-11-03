@@ -1,4 +1,4 @@
-//last update: 18/09/2026 — v2.9 (compute_H gating + trig-once restructure; per-region OpenMP retained)
+//last update: 03/11/2026 — v2.9 (compute_H gating + trig-once restructure; per-region OpenMP retained)
 
 #include <stdio.h>
 #include <stdlib.h>

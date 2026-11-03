@@ -7,8 +7,6 @@ This guide is the merger of two documents:
 - **Part 1** walks you through what the program *does* — the `Complex_HSM.c` main flow, step by step.
 - **Part 2** tells you what is *inside* the supporting library `Complex_HSM.h` — the data structures, the index macros, and every function the `.c` calls on. Specifically what it does, what it takes, what it returns, and (where it matters) the inner algorithm it runs.
 
-If you have not read Part 1 yet, go read it first. Part 2 assumes you know what **N**, **D**, the fields **S**, the equalizers **Y**, and the observables are. Part 2 zooms in on the machinery.
-
 ---
 
 # Part 1: The Main Program
