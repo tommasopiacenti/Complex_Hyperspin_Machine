@@ -1,4 +1,4 @@
-//last update: 03/11/2026 — v2.9 (compute_H gating + trig-once restructure; per-region OpenMP retained)
+//last update: 03/11/2026 - v2.9 (compute_H gating + trig-once restructure; per-region OpenMP retained)
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -184,7 +184,7 @@ void print_header_and_ini_parameters(const char *filename, int N, int D, int ini
     printf("//   |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |    //\n");
     printf("//      v           v  v     v     v  v        v     v  v     v  v    //\n");
     printf("//                                                                    //\n");
-    printf("//                                   last updated: 03/11/2026 — v2.9  //\n");
+    printf("//                                   last updated: 03/11/2026 - v2.9  //\n");
     printf("//                                               by T. Piacenti  :)   //\n");
     printf("////////////////////////////////////////////////////////////////////////\n\n");
 

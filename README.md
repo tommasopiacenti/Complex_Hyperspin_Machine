@@ -1,4 +1,4 @@
-# Complex_HSM v2.9 — Comprehensive Reference
+# Complex_HSM v2.9 - Comprehensive Reference
 
 *Last Updated: 03/11/2026 | Author: T. Piacenti*
 
@@ -31,7 +31,7 @@ Funded by the European Union (HORIZON-ERC-2023-ADG HYPERSPIM project Grant No. 1
 
 Complex_HSM simulates the dynamics of a system of parametric oscillators used as a **Complex Hyperspin Machine**. The natural dynamical variables are N×D oscillator fields arranged as **N complex hyperspin field vectors** S_a ∈ ℂ^D (a = 0, ..., N−1), each with D components, evolving via second-order Runge-Kutta (RK2) integration of driven-dissipative ODEs. The hyperspin machine is connected to an equalization layer, composed of 2N **equalization fields**, which consists of two equalization rings: The parametric oscillator fields in each couple of neighboring hyperspins is coupled to two equalization fields (Y0, Y1) that, for sufficiently long integration time, equalize the two hyperspin amplitudes. Consequently, amplitude equalization is achieved for all hyperspins.
 
-The machine maps to a **hyperspin Hamiltonian** H — an energy functional defined on the *directions* of the fields, which we identify with complex hyperspins:
+The machine maps to a **hyperspin Hamiltonian** H, an energy functional defined on the *directions* of the fields, which we identify with complex hyperspins:
 
 ```
 Ŝ_a = S_a / |S_a|       (unit-normalized field = hyperspin)
@@ -52,7 +52,7 @@ gcc -O3 -fopenmp -march=native src/Complex_HSM.c -o Complex_HSM.x -lgsl -lgslcbl
 |------|---------|
 | `-O3` | Enables aggressive compiler optimizations: function inlining, loop vectorization, instruction-level parallelism. Substantial speedup on the RK2 inner loops. |
 | `-fopenmp` | Enables OpenMP pragmas for multi-threaded execution and links the OpenMP runtime. This flag is required even for `num_threads = 1`: without it, linking fails with `undefined reference to 'omp_set_num_threads'`, because `main()` calls that function directly. Sequential or parallel execution is then chosen at runtime by `num_threads`. |
-| `-march=native` | Generates instructions for the host CPU (e.g., AVX2, FMA). Typically 10–20% faster than generic x86-64 on the numerical loops. |
+| `-march=native` | Generates instructions for the host CPU (e.g., AVX2, FMA). Typically 10-20% faster than generic x86-64 on the numerical loops. |
 | `-lgsl -lgslcblas -lm` | Links GSL (eigenvalue computation for pump threshold and diagnostics), CBLAS (internal GSL dependency), and the math library. |
 
 The build also needs glibc 2.33 or newer, because the memory report calls `mallinfo2()`.
@@ -89,7 +89,7 @@ A key left unset in a mode that does not need it can only show an arbitrary valu
 
 This walkthrough shows a run for a system of 100 2-dimensional hyperspins on a sparse random graph with complex coupling, zero pump, and observes the system evolve toward a steady state.
 
-**Step 1 — Create the config file.** Save the following as `Complex_HSM.ini`:
+**Step 1 - Create the config file.** Save the following as `Complex_HSM.ini`:
 
 ```ini
 # System
@@ -137,11 +137,11 @@ num_threads = 8
 Key parameters for this example:
 - `new_coupling=1`: generate a random graph (alternatives: `2` for lattice, `0` to load from file)
 - `type_coup=2`: complex coupling (both Re and Im parts; `0`=real only, `1`=imag only)
-- `compute_eigenvalues=0`: sparse-only mode (no dense J allocation — used for large systems; set to `1` to enable pump threshold auto-calculation and eigenvalue diagnostics)
+- `compute_eigenvalues=0`: sparse-only mode (no dense J allocation, used for large systems; set to `1` to enable pump threshold auto-calculation and eigenvalue diagnostics)
 - `save_dyn=3`: write merged observables to a single file (alternatives: `0`=final state only, `1`=full field dynamics, `2`=H+Lyapunov)
 - `save_steps=10`: compute the full set of observables and write them every 10th step. H is also computed at each stability check, which in this example is every step (`steps_for_update` defaults to 1)
 
-**Step 2 — Compile and run:**
+**Step 2 - Compile and run:**
 
 ```bash
 gcc -O3 -fopenmp -march=native src/Complex_HSM.c -o Complex_HSM.x -lgsl -lgslcblas -lm
@@ -150,9 +150,9 @@ gcc -O3 -fopenmp -march=native src/Complex_HSM.c -o Complex_HSM.x -lgsl -lgslcbl
 
 Here `1234` is the random seed (NS) and `-1` means use `hm=0` directly.
 
-**Step 3 — Output.** The program writes:
+**Step 3 - Output.** The program writes:
 
-- `Data_H_Ly_m_DS2.dat` — time series of observables (5 columns, one row per output step):
+- `Data_H_Ly_m_DS2.dat` - time series of observables (5 columns, one row per output step):
 
 ```
 t           H            Ly/N         <m>          <DS2>
@@ -167,14 +167,14 @@ t           H            Ly/N         <m>          <DS2>
   - **⟨m⟩**: average magnetization (0 = disordered, 1 = fully aligned)
   - **⟨DS²⟩**: amplitude variance (measures uniformity of field magnitudes)
 
-- `Data_Final.dat` — final field configuration: a header line plus one data line (seed, time, then |S|² and Re/Im components for each field). On an early stop the time is `tmax` (see §8.2)
+- `Data_Final.dat` - final field configuration: a header line plus one data line (seed, time, then |S|² and Re/Im components for each field). On an early stop the time is `tmax` (see §8.2)
 
-**Step 4 — Matrix files.** The coupling matrix is saved automatically:
+**Step 4 - Matrix files.** The coupling matrix is saved automatically:
 
-- `Data_Matrix_sparse.dat` — sparse edge-list format: edge count on the first line, then one edge per line (`a  b  Jr  Ji` where a < b). This is always written for `new_coupling = 1` and `2`, but not for `new_coupling = 0` (see §6.4).
-- `Data_Matrix.dat` — dense N×N grid format (only written when `compute_eigenvalues=1`).
+- `Data_Matrix_sparse.dat` - sparse edge-list format: edge count on the first line, then one edge per line (`a  b  Jr  Ji` where a < b). This is always written for `new_coupling = 1` and `2`, but not for `new_coupling = 0` (see §6.4).
+- `Data_Matrix.dat` - dense N×N grid format (only written when `compute_eigenvalues=1`).
 
-Both files are human-readable. See §6.4–6.5 for format details.
+Both files are human-readable. See §6.4-6.5 for format details.
 
 ### 1.4 Parallelism
 
@@ -183,7 +183,7 @@ Set `num_threads` in the config file:
 - `num_threads = 1`: sequential execution, no OpenMP overhead
 - `num_threads = 8`: parallel execution using 8 CPU cores
 
-No recompilation needed — the thread count is set at runtime. See §10 for detailed guidance on when parallelization pays off.
+No recompilation needed, the thread count is set at runtime. See §10 for detailed guidance on when parallelization pays off.
 
 ---
 
@@ -191,7 +191,7 @@ No recompilation needed — the thread count is set at runtime. See §10 for det
 
 ### 2.1 System State
 
-The system consists of **N interacting complex fields** S_a ∈ ℂ^D (a = 0, ..., N−1). The dynamics drives them toward configurations that minimize an energy functional defined on their *directions* — the **hyperspins** Ŝ_a = S_a/|S_a|.
+The system consists of **N interacting complex fields** S_a ∈ ℂ^D (a = 0, ..., N−1). The dynamics drives them toward configurations that minimize an energy functional defined on their *directions*, the **hyperspins** Ŝ_a = S_a/|S_a|.
 
 ```
 S_a ∈ ℂ^D,    a = 0, ..., N-1
@@ -270,7 +270,7 @@ The total energy of the system, normalized by field magnitudes:
 H = − Σ_{p,q} Σ_k [ Jr_{pq}·Ŝ_{pk}·conj(Ŝ_{qk}) + Ji_{pq}·Im(Ŝ_{pk}·conj(Ŝ_{qk})) ]
 ```
 
-where `Ŝ_a = S_a / |S_a|` is the unit-normalized hyperspin. The normalization makes H **scale-invariant** — it depends only on the *direction* of each field, not its magnitude. This is essential because the physical dynamics allow field magnitudes to vary, but the energy of the steady state depends only on the orientational order.
+where `Ŝ_a = S_a / |S_a|` is the unit-normalized hyperspin. The normalization makes H **scale-invariant** - it depends only on the *direction* of each field, not its magnitude. This is essential because the physical dynamics allow field magnitudes to vary, but the energy of the steady state depends only on the orientational order.
 
 A more negative H means a more stable configuration. The **ground state** (global minimum of H) is the configuration the system tries to reach through its dissipative dynamics.
 
@@ -296,8 +296,7 @@ L₀ = −½·Σ_a [ ½·h_a·Σ_k (Re(S_{ak})² − Im(S_{ak})²) − g·|S_a|�
 Lc = −½·Σ_{a,b,k} [ Jr_{ab}·(Re_a·Re_b + Im_a·Im_b) + Ji_{ab}·(Im_a·Re_b − Re_a·Im_b) ]
 ```
 
-The sign of dL/dt indicates whether the system is approaching a stable configuration (dL/dt < 0) or moving away from one (dL/dt > 0). The code computes it as `(L(t) − L_old)/dt`, where `L_old` is L at the previous save step, so the interval is `save_steps·dt` while the division is by `dt`. The printed `dL` is therefore correct only for `save_steps = 1`; otherwise it equals dL/dt·`save_steps`, with the sign unaffected. In the first saved row `L_old = 0`, so that row equals L/dt for any `save_steps`. 
-Note: L is a proper Lyapunov function (dL/dt ≤ 0 guaranteed along trajectories) only in the absence of equalization. When equalization is active, it acts as an external drive that can make dL/dt temporarily positive.
+In the absence of equalization, dL/dt is supposed to be negative in any constant-parameter configuration, i.e. with no dynamical changes of pump, couplings or equalization. The code computes it as `(L(t) − L_old)/dt`, where `L_old` is L at the previous save step, so the interval is `save_steps·dt` while the division is by `dt`. The printed `dL` is therefore correct only for `save_steps = 1`; otherwise it equals dL/dt·`save_steps`, with the sign unaffected. In the first saved row `L_old = 0`, so that row equals L/dt for any `save_steps`.
 
 **Implementation notes:**
 - L0 is computed in a merged field loop alongside the amplitude variance DS², with OpenMP reduction
@@ -315,6 +314,8 @@ Lmat = [ ½(½h − g)·δ_{ij} + ½Jr_{ij}          +½Ji_{ij}       ]
 
 This matrix acts on the 2N-dimensional vector `(Re(S_0),...,Re(S_{N-1}), Im(S_0),...,Im(S_{N-1}))` linearized around the origin S = 0. The code scans h from 0 upward in steps of 0.00001 until `max_eigenvalue(Lmat) > 0`, up to a maximum of h = 5. The threshold is used to auto-set the pump via `hm = pth × hth` when `pth ≥ 0`.
 
+**Note on low loss:** the threshold can be negative if the max eigenvalue of the coupling matrix alone beats the loss term (λmax(J) > g). This is why we can safely set h = 0 for systems with low loss. The code only scans h ≥ 0, so it reports `hth = 0` when the threshold is negative.
+
 **Note on the Ji sign:** the code builds Lmat with the opposite sign of Ji from the dynamics, where the J×S product gives −½Ji in the Re(S) equation and +½Ji in the Im(S) equation. Flipping the sign of the Im(S) block maps one matrix to the other, so they have the same eigenvalues and `hth`, `Jmax` and `Lmax` are not affected.
 
 **Heap usage:** The 2N×2N matrix is heap-allocated via `calloc`, not a stack VLA. This supports N up to at least 1000 (32 MB allocation for N=1000). At N=1000, the GSL eigenvalue computation takes seconds to minutes depending on hardware.
@@ -325,7 +326,7 @@ When the coupling matrix J is **complex** (`type_coup = 2` or `type_coup = 1`), 
 
 - The pump acts on **S\*** (the complex conjugate of the field), coupling to a Pauli σ_z matrix in the Re/Im representation (at φ = 0)
 - The imaginary part of J couples to a **different** Pauli matrix (σ_y) in the same representation
-- These two matrices do **not** commute — meaning there is no common eigenbasis that diagonalizes both the pump and the coupling simultaneously
+- These two matrices do **not** commute, meaning there is no common eigenbasis that diagonalizes both the pump and the coupling simultaneously
 - Consequently, the driven-dissipative dynamics at h > 0 do **not** effectively minimize the Hamiltonian when J is complex
 
 This is why all production benchmarks use `h = 0` (by setting `pth = -1` and `hm = 0` in the config) for complex coupling matrices. When J is real (`type_coup = 0`), the imaginary parts of the fields are damped out and the pump commutes with the coupling, so the dynamics does minimize the Hamiltonian effectively even at h > 0. The system still evolves via the dissipative dynamics (g, β, equalization) and can find ground states through the interplay of coupling and dissipation.
@@ -390,9 +391,9 @@ The relevant time scales are set by the pump h, dissipation g, nonlinearity β·
 dt ≲ C / max(h, g, β·|S|², |λ_J|, deq)
 ```
 
-where C ≈ 1–2 for RK2 (the stability region for a real eigenvalue λ extends to dt = 2/|λ|). In practice, C ≈ 0.5–1 provides a safety margin for the nonlinear terms.
+where C ≈ 1 to 2 for RK2 (the stability region for a real eigenvalue λ extends to dt = 2/|λ|). In practice, C ≈ 0.5 to 1 provides a safety margin for the nonlinear terms.
 
-The step size is **fixed** — there is no adaptive stepping. If the simulation becomes numerically unstable, reduce dt.
+The step size is **fixed** - there is no adaptive stepping. If the simulation becomes numerically unstable, reduce dt.
 
 ### 3.3 Precomputation Strategy
 
@@ -414,9 +415,9 @@ Three cost-saving measures are applied per timestep:
 |------|-------|------|
 | `src/Complex_HSM.h` | 1904 | Header + all function implementations: data structures, coupling matrix generation (random, lattice, file), sparse CSR/edge-list construction, dynamics (RK2), observables (Hamiltonian, Lyapunov, magnetization), eigenvalue computation, output I/O, hash helpers |
 | `src/Complex_HSM.c` | 354 | Main program entry point: argument parsing, initialization branching (sparse-first, lattice mode, eigenvalue mode), main time-stepping loop, stop condition checking, cleanup |
-| `Complex_HSM.ini` | — | Configuration file (see §7) |
+| `Complex_HSM.ini` | - | Configuration file (see §7) |
 
-All function implementations are in `Complex_HSM.h` (included once by `Complex_HSM.c`). There is no separate `.c` for the library functions — the header is both the declaration and the definition.
+All function implementations are in `Complex_HSM.h` (included once by `Complex_HSM.c`). There is no separate `.c` for the library functions - the header is both the declaration and the definition.
 
 ### 4.2 Main Loop Flow
 
@@ -484,7 +485,7 @@ All function implementations are in `Complex_HSM.h` (included once by `Complex_H
 | `DS2` | N | Midpoint squared magnitudes |
 | `Y_re`, `Y_im` | N × 2 | Equalizer variables |
 | `DY_re`, `DY_im` | N × 2 | Midpoint equalizer values |
-| `J_re`, `J_im` | N × N | Dense coupling matrix — only allocated if `compute_eigenvalues=1` |
+| `J_re`, `J_im` | N × N | Dense coupling matrix, only allocated if `compute_eigenvalues=1` |
 | `h` | N | Pump amplitude per field |
 | `hmod` | N | Pump modification offset (applied at t_pump) |
 | `phi` | N | Pump phase per field |
@@ -559,7 +560,7 @@ All arrays are allocated as single blocks, not arrays of pointers. `allocate_sys
 The coupling matrix J is N×N, requiring O(N²) memory and computation when stored densely. For **sparse connectivity** (e.g., lattices where each hyperspin connects to ~2d neighbors, or random graphs with mean degree k ≪ N), O(N²) operations are wasteful:
 
 - A 2D lattice of N=10⁶ hyperspins has ~4·10⁶ non-zero couplings, but a dense N² storage would need 10¹² entries
-- Even a moderately sparse random graph (mean degree k = 10) at N=10⁶ has ~10⁷ non-zero entries — still trivial compared to dense storage
+- Even a moderately sparse random graph (mean degree k = 10) at N=10⁶ has ~10⁷ non-zero entries, still trivial compared to dense storage
 
 The sparse-first architecture makes storage and per-step work scale with nnz and N, and allocates the dense matrix only when eigenvalue computation requires it. Matrix construction can still take O(N²) time: the random-graph generator visits all N(N−1)/2 pairs in each of its two RNG passes, even for sparse graphs, and reading a dense file scans all N² entries.
 
@@ -618,7 +619,7 @@ Every coupling matrix initialization path constructs the sparse structures **dir
 Pass 1 (count):  seed = NS; for each pair (i,j) with j<i:
                    exists = rand_r(&seed) < prob_coup
                    if exists: row_count[i]++, row_count[j]++, nnz += 2
-                   (consume sign_re + sign_im random values but discard — just advancing RNG)
+                   (consume sign_re + sign_im random values but discard - just advancing RNG)
                  → nnz known, allocate CSR + edge list
 
 Pass 2 (fill):   seed = NS; for each pair (i,j) with j<i:
@@ -657,7 +658,7 @@ For each hyperspin a:
 → Free edge_decisions[]
 ```
 
-The `edge_decisions` array is a projected `32·d·N` bytes (2·d·N entries × 16 bytes each: four ints per entry). For N=10⁶, d=3, this is 96 MB — a temporary that is freed immediately after construction.
+The `edge_decisions` array is a projected `32·d·N` bytes (2·d·N entries × 16 bytes each: four ints per entry). For N=10⁶, d=3, this is 96 MB, a temporary that is freed immediately after construction.
 
 #### Path 3: File Input (`new_coupling = 0`)
 
@@ -671,7 +672,7 @@ Two sub-paths with automatic detection:
 2. **Dense file (`Data_Matrix.dat`):** `initialize_J_Sparse_From_File()`
    - Legacy N×N grid format (space-separated "Re Im" per cell)
    - Two-pass file read: count non-zero off-diagonals → allocate → fill
-   - O(N²) file read time (unavoidable — must scan all entries to find non-zero ones)
+   - O(N²) file read time (unavoidable, must scan all entries to find non-zero ones)
    - O(nnz) memory for sparse structures (the file reading is O(N²), but storage is O(nnz))
 
 #### Path 4: Dense J Fills (for `compute_eigenvalues = 1`)
@@ -690,7 +691,7 @@ for (e = 0; e < num_edges; e++) {
 }
 ```
 
-This is O(nnz) — fast. The dense J is only used for:
+This is O(nnz), fast. The dense J is only used for:
 - `h_threshold()` (scanning h for pump threshold)
 - `Linearized_Max_Eigenvalue()` (computing Jmax, Lmax)
 
@@ -721,7 +722,7 @@ Memory at N=10⁶, mean degree k=10 (sparse random graph, compute_eigenvalues=0)
 | System size | Recommendation | Reason |
 |-------------|---------------|--------|
 | N < 500 | `compute_eigenvalues = 1` | Dense J is small (16·N² < 4 MB), eigenvalues are fast, diagnostics valuable |
-| N = 500–2000 | Either | Dense J uses 4–64 MB — acceptable. Eigenvalue computation takes seconds to minutes |
+| N = 500 to 2000 | Either | Dense J uses 4-64 MB, acceptable. Eigenvalue computation takes seconds to minutes |
 | N > 2000 | `compute_eigenvalues = 0` | Dense J exceeds 64 MB; eigenvalue scratch adds 32·N²; diagonalization becomes slow (hours at N=10⁴) |
 | N > 10⁵ | Must be `compute_eigenvalues = 0` | Dense J alone would be many GB/TB |
 
@@ -732,8 +733,8 @@ Memory at N=10⁶, mean degree k=10 (sparse random graph, compute_eigenvalues=0)
 Within v2.9, same seed + same config → same coupling matrix and same dynamics:
 - **Random graph (`new_coupling=1`):** The `rand_r` 3-pass generator is fully deterministic. Same NS → same sequence of pair decisions.
 - **Lattice (`new_coupling=2`):** Uses `rand()` for edge decisions, seeded via `srand(NS)` in main(). Same NS → same lattice.
-- **File input (`new_coupling=0`):** Matrix file is read verbatim — identical input → identical sparse structures.
-- **`initial_type` RNG invariant:** `initialize_fields` always draws both the real and imaginary components (unconditional `rand()` calls) and then zeroes the unused component. Never skip the second draw when implementing constrained initial conditions — skipping would shift the `rand()` stream and silently change the lattice coupling matrix for the same NS. Because the draws are unconditional, the lattice matrix is identical across all `initial_type` values.
+- **File input (`new_coupling=0`):** Matrix file is read verbatim - identical input → identical sparse structures.
+- **`initial_type` RNG invariant:** `initialize_fields` always draws both the real and imaginary components (unconditional `rand()` calls) and then zeroes the unused component. Never skip the second draw when implementing constrained initial conditions - skipping would shift the `rand()` stream and silently change the lattice coupling matrix for the same NS. Because the draws are unconditional, the lattice matrix is identical across all `initial_type` values.
 
 ---
 
@@ -840,7 +841,7 @@ For d=3, coord[2] is the z-coordinate (slowest), and so on.
 
 Each hyperspin has up to `2·d` potential neighbors (forward and backward in each dimension). The algorithm generates an edge decision for each potential neighbor, but only stores edges where b > a (upper-triangle filtering to avoid duplicates).
 
-**Dual-direction checking:** For each dimension dim, both forward (coord[dim]+1) and backward (coord[dim]-1) neighbors are examined. This is essential for PBC: a hyperspin at position 0 in a given dimension has both a forward neighbor (1) and a backward neighbor (NL-1) — both may have higher or lower index depending on the dimension. Without dual-direction checking, PBC wrap-around edges would be missed when they happen to have b < a.
+**Dual-direction checking:** For each dimension dim, both forward (coord[dim]+1) and backward (coord[dim]-1) neighbors are examined. This is essential for PBC: a hyperspin at position 0 in a given dimension has both a forward neighbor (1) and a backward neighbor (NL-1) - both may have higher or lower index depending on the dimension. Without dual-direction checking, PBC wrap-around edges would be missed when they happen to have b < a.
 
 **Boundary handling (OBC):** When a hyperspin is at coord[dim] = 0 (backward) or coord[dim] = NL-1 (forward) and `lattice_bc = 0`, that direction has no neighbor. The direction is marked invalid and no edge decision is generated. Placeholder entries with `exists = 0` are inserted into the decision array to maintain lockstep between passes.
 
@@ -913,7 +914,7 @@ a2  b2  Jr2  Ji2
 - First line: total number of undirected edges (integer)
 - Each subsequent line: one undirected edge (a < b), with J(a,b) = Jr + i·Ji
 - Hermitian symmetry is implicit: J(b,a) = Jr − i·Ji (derived, not stored)
-- No zero entries — the file is O(nnz), not O(N²)
+- No zero entries - the file is O(nnz), not O(N²)
 
 #### I/O Rules Table
 
@@ -940,7 +941,7 @@ Re(1,0)  Im(1,0)    Re(1,1)  Im(1,1)    ...  Re(1,N-1)  Im(1,N-1)
 Re(N-1,0)  Im(N-1,0)  ...        Re(N-1,N-1)  Im(N-1,N-1)
 ```
 
-Each cell is two space-separated doubles (Re, Im). Rows are newline-separated. The file is O(N²) — ~40·N² bytes for N×N pairs of "%0.15f" doubles.
+Each cell is two space-separated doubles (Re, Im). Rows are newline-separated. The file is O(N²), ~40·N² bytes for N×N pairs of "%0.15f" doubles.
 
 ---
 
@@ -1034,8 +1035,8 @@ The stability check requires `t > max(t_coup, t_eq, t_pump, t_pump2, ramp end)`,
 tmax   = 20000.0  # Maximum simulation time. The simulation will stop here
                   # if no other stop condition triggers first.
 dt     = 0.01     # Integration time step. RK2 stability requires
-                  # dt ≲ C / max(h, g, β·|S|², |λ_J|, deq) where C ≈ 1–2.
-                  # Typical range: 0.001–0.1.
+                  # dt ≲ C / max(h, g, β·|S|², |λ_J|, deq) where C ≈ 1 to 2.
+                  # Typical range: 0.001 to 0.1.
 t_coup = 50.0     # Time when coupling term activates. -1 = never on.
 t_eq   = 50.0     # Time when equalization activates. -1 = never on.
 t_pump = -1       # Time when pump modification (Dh) is applied.
@@ -1050,16 +1051,16 @@ Dhramp   = 0      # Amount added to all h_a at each ramp step (default 0).
 
 The pump ramp adds `Dhramp` to all h_a at `t_hramp`, `t_hramp + Dt_hramp`, and so on, `n_hramp` times in total. If `n_hramp > 0` and `Dt_hramp < dt`, the program prints an error and exits at startup.
 
-**Note:** Convergence time varies enormously — even at fixed N, t_final can span 3 orders of magnitude depending on the matrix instance and initial conditions. Set `tmax` generously; the stability stop condition will terminate early when the system converges.
+**Note:** Convergence time varies enormously - even at fixed N, t_final can span 3 orders of magnitude depending on the matrix instance and initial conditions. Set `tmax` generously; the stability stop condition will terminate early when the system converges.
 
 ### 7.6 Coupling Matrix
 
 ```ini
 new_coupling = 2    # 0 = read from file, 1 = generate new random matrix,
                     # 2 = generate d-dimensional hypercubic lattice
-prob_coup    = 1.0  # Probability that a given pair of fields is coupled (0–1)
-prob_pm_re   = 0.7  # Probability that Re coupling is positive (vs negative) (0–1)
-prob_pm_im   = 0.7  # Probability that Im coupling is positive (vs negative) (0–1)
+prob_coup    = 1.0  # Probability that a given pair of fields is coupled (0 to 1)
+prob_pm_re   = 0.7  # Probability that Re coupling is positive (vs negative) (0 to 1)
+prob_pm_im   = 0.7  # Probability that Im coupling is positive (vs negative) (0 to 1)
 coup_phase   = 0    # Global coupling rotation angle in radians (applied once after construction)
 type_coup    = 0    # 0 = real only, 1 = imaginary only, 2 = both Re+Im
 
@@ -1098,7 +1099,7 @@ When `compute_eigenvalues = 0`:
 ### 7.7 Output
 
 ```ini
-save_dyn    = 3       # Output mode (0, 1, 2, or 3 — see §8)
+save_dyn    = 3       # Output mode (0, 1, 2, or 3 - see §8)
 save_steps  = 1       # Write output every N steps (1 = every step); values < 1 are clamped to 1
 buffer_size = 262144  # I/O buffer size in bytes (default 256 KB)
 flush_interval = 1000 # Flush buffers to disk every N steps
@@ -1122,10 +1123,10 @@ When `output_dir = 1`, the program creates `results/run_<16-char-hex-fnv1a-hash>
 This ensures **deterministic folder naming**: identical inputs always produce the same folder; different parameters get separate folders automatically.
 
 Each run folder contains:
-- `Complex_HSM.ini` — copy of the config file
-- `Data_Matrix_sparse.dat` and/or `Data_Matrix.dat` — copies of coupling matrix files
+- `Complex_HSM.ini` - copy of the config file
+- `Data_Matrix_sparse.dat` and/or `Data_Matrix.dat` - copies of coupling matrix files
 - All simulation output files
-- `metadata.txt` — run summary (timestamp, parameters, H_final, t_final, stop reason)
+- `metadata.txt` - run summary (timestamp, parameters, H_final, t_final, stop reason)
 
 ### 7.9 Parallel
 
@@ -1133,7 +1134,7 @@ Each run folder contains:
 num_threads = 1   # 1 = sequential, >1 = parallel with that many threads
 ```
 
-No recompilation needed — OpenMP thread count is set at runtime via `omp_set_num_threads()`.
+No recompilation needed, OpenMP thread count is set at runtime via `omp_set_num_threads()`.
 
 ---
 
@@ -1143,10 +1144,10 @@ No recompilation needed — OpenMP thread count is set at runtime via `omp_set_n
 
 | `save_dyn` | Files created |
 |:----------:|---------------|
-| 0 | `Data_Final.dat` — final field state only |
+| 0 | `Data_Final.dat` - final field state only |
 | 1 | `Data_Final.dat`, `Data_Fields.dat`, `Data_Equalizers.dat`, `Data_Hamilton.dat`, `Data_Lyapunov.dat` |
 | 2 | `Data_Final.dat`, `Data_Hamilton.dat`, `Data_Lyapunov.dat` |
-| 3 | `Data_Final.dat`, `Data_H_Ly_m_DS2.dat` — merged observables |
+| 3 | `Data_Final.dat`, `Data_H_Ly_m_DS2.dat` - merged observables |
 
 ### 8.2 File Formats
 
@@ -1196,7 +1197,7 @@ N rows per time point. All values with 15 decimal places.
 t  Re(Y0)  Re(Y1)  Re(Y2)  Re(Y3)  ...  Im(Y0)  Im(Y1)  ...
 ```
 
-One row per time point. Only **even-indexed** equalizers are output: the code iterates `a = 0, 2, 4, …` and writes each equalizer's two components `Y_RE(s, a, 0)` and `Y_RE(s, a, 1)` as a column pair, all Re first then all Im. Each equalizer Y_a = (Y_{a,0}, Y_{a,1}) connects the two hyperspin fields (a, a+1) in the equalization ring: Y_{a,0} absorbs positive norm differences and Y_{a,1} negative ones. The header labels each column pair with the indices `(a, a+1)` (e.g. `Re(Y0) Re(Y1)`, then `Re(Y2) Re(Y3)`, …) — so column 2 of each pair is the second *component* of equalizer a, not equalizer a+1, and the odd-indexed equalizers are never written.
+One row per time point. Only **even-indexed** equalizers are output: the code iterates `a = 0, 2, 4, …` and writes each equalizer's two components `Y_RE(s, a, 0)` and `Y_RE(s, a, 1)` as a column pair, all Re first then all Im. Each equalizer Y_a = (Y_{a,0}, Y_{a,1}) connects the two hyperspin fields (a, a+1) in the equalization ring: Y_{a,0} absorbs positive norm differences and Y_{a,1} negative ones. The header labels each column pair with the indices `(a, a+1)` (e.g. `Re(Y0) Re(Y1)`, then `Re(Y2) Re(Y3)`, …), so column 2 of each pair is the second *component* of equalizer a, not equalizer a+1, and the odd-indexed equalizers are never written.
 
 #### `Data_H_Ly_m_DS2.dat` (save_dyn = 3)
 
@@ -1330,7 +1331,7 @@ I/O buffer allocation in `init_output_files` (depends on `save_dyn`; see §8.1).
 
 #### Case 2: Dense File Input (new_coupling=0, compute_eigenvalues=0)
 
-No dense J arrays are allocated — the file is read element-by-element via `fscanf`
+No dense J arrays are allocated - the file is read element-by-element via `fscanf`
 and sparse structures are built directly.
 
 ```
@@ -1370,11 +1371,11 @@ for `new_coupling=1`, so in lattice and file modes the `[MEM]` line prints
 | 2D lattice (k=4)      | 4·N         | 356 MB              | ✅ Yes    |
 | 3D lattice (k=6)      | 6·N         | 420 MB              | ✅ Yes    |
 
-The critical insight: **sparse storage alone does not fix O(N²) scaling** when prob_coup is constant — it only eliminates the 16·N² dense J overhead (32·nnz vs 16·N² at p=0.7: 22.4·N² vs 16·N², actually worse). The real value of the sparse architecture is:
+The critical insight: **sparse storage alone does not fix O(N²) scaling** when prob_coup is constant - it only eliminates the 16·N² dense J overhead (32·nnz vs 16·N² at p=0.7: 22.4·N² vs 16·N², actually worse). The real value of the sparse architecture is:
 
 1. **No 32·N² eigenvalue scratch** (kills dense mode above N ≈ 10⁴)
 2. **No O(N³) GSL diagonalization** (hours at N=10⁴, impossible at N=10⁵)
-3. **O(N) topologies** (lattices, sparse random graphs with fixed mean degree) fit in memory up to 10⁶–10⁸ hyperspins. Random-graph construction still takes O(N²) time (see §5.1), so that time can become the limit before memory does
+3. **O(N) topologies** (lattices, sparse random graphs with fixed mean degree) fit in memory up to 10⁶ to 10⁸ hyperspins. Random-graph construction still takes O(N²) time (see §5.1), so that time can become the limit before memory does
 
 ### 9.7 Practical Limits
 
@@ -1397,10 +1398,10 @@ The norm loops (midpoint norms in `RK2_step` and `compute_hyperspin_norm()`) run
 | `compute_coupling_product_flat` | fields a | Each thread processes a disjoint set of rows |
 | `RK2_step` (midpoint phase) | fields a | Per-field derivative computation |
 | `RK2_step` (update phase) | fields a | Per-field full-step update |
-| `compute_observables` (inv_sqrtS2) | fields i | Precompute `1/√|S|²` for normalization — only when `compute_H=1` |
-| `compute_observables` (field pass) | fields a | L0, DS² reduction — only when `compute_full=1` |
-| `compute_observables` (edge pass) | edges | H + Lc reduction — only when `compute_H=1`; Lc further gated by `compute_full` |
-| `compute_observables` (magnetization) | fields a | VLA array reduction `compR[:D],compI[:D]` — only when `compute_full=1` |
+| `compute_observables` (inv_sqrtS2) | fields i | Precompute `1/√|S|²` for normalization, only when `compute_H=1` |
+| `compute_observables` (field pass) | fields a | L0, DS² reduction, only when `compute_full=1` |
+| `compute_observables` (edge pass) | edges | H + Lc reduction, only when `compute_H=1`; Lc further gated by `compute_full` |
+| `compute_observables` (magnetization) | fields a | VLA array reduction `compR[:D],compI[:D]`, only when `compute_full=1` |
 
 ### 10.2 Thread Safety
 
@@ -1414,7 +1415,7 @@ All parallel regions are thread-safe because:
 
 Each save step creates 8 parallel regions (coupling product 2×, RK2 midpoint,
 RK2 update, inv_sqrtS2, field pass for L0/DS², edge pass for H/Lc, magnetization). E-target, stability-check and final steps that are not save steps create 6 (no field pass, no magnetization). Idle steps (no save, no E-target, no check, no final; typical `save_dyn=0` benchmarks) create only 4
-(coupling product 2×, RK2 midpoint, RK2 update — the `compute_H` gate skips the observables entirely). Each region pays a ~5 µs overhead
+(coupling product 2×, RK2 midpoint, RK2 update - the `compute_H` gate skips the observables entirely). Each region pays a ~5 µs overhead
 for thread fork, work distribution, and implicit barrier. Total: ~20 µs/step
 of pure coordination cost on idle steps (4 always-active × 5 µs).
 
@@ -1426,7 +1427,7 @@ Parallelization only helps when the actual computation dwarfs this overhead.
 N_crit(k, D, n_t) = 58000 · n_t/(n_t-1) / [(21k + 32)·D + 100]
 ```
 
-**Understanding each term — Numerator:**
+**Understanding each term - Numerator:**
 
   `58000`  =  F_eff × n_regions × τ
               │         │           └── τ = 5 µs: barrier + fork cost per region
@@ -1435,7 +1436,7 @@ N_crit(k, D, n_t) = 58000 · n_t/(n_t-1) / [(21k + 32)·D + 100]
                │               (8 total on save steps, 2 gated by compute_full:
                │                field pass for L0/DS² and magnetization)
                │
-               │   v2.9 note: this models the worst-case step — one that computes H
+               │   v2.9 note: this models the worst-case step - one that computes H
                │   (save, E-target, stability-check, or final). On the idle steps
                │   between them the compute_H gate skips observables entirely, so only
                │   4 regions run (coupling product 2×, RK2 midpoint, RK2 update):
@@ -1443,7 +1444,7 @@ N_crit(k, D, n_t) = 58000 · n_t/(n_t-1) / [(21k + 32)·D + 100]
                │   flops below are also absent. N_crit is therefore a conservative
                │   upper bound for save_dyn=0 / long-gap runs.
               └── F_eff ≈ 2×10^9 flops/s: effective single-core throughput.
-                  This is NOT peak flops — for sparse CSR operations the CPU
+                  This is NOT peak flops - for sparse CSR operations the CPU
                   spends most of its time waiting on memory, not computing.
                   2 GFLOP/s is realistic for this access pattern.
 
@@ -1455,10 +1456,10 @@ estimates, and the constant absorbs their combined uncertainty).
   work. When the parallel region ends, one thread's last chunk serializes:
     n_t=2  → 2.00   (half the "parallel" time is effectively serial)
     n_t=4  → 1.33
-    n_t=8  → 1.14   (only 1/8 of parallel time is serial — good)
+    n_t=8  → 1.14   (only 1/8 of parallel time is serial - good)
     n_t=16 → 1.07
 
-**Understanding each term — Denominator (work per field, flops):**
+**Understanding each term - Denominator (work per field, flops):**
 
   `21k·D`  Coupling-related work. Each field interacts with k neighbors:
              - Coupling product (J×S via CSR): 8 flops × 2 phases × k × D
@@ -1519,7 +1520,7 @@ Higher D multiplies the per-field work linearly. For k=4:
 For our 2D lattices (k=4) the real threshold is ~200.
 
 The `if(use_parallel)` clause in every `#pragma omp parallel for` ensures
-zero OpenMP overhead when `num_threads <= 1` — the code compiles and runs
+zero OpenMP overhead when `num_threads <= 1` - the code compiles and runs
 as pure sequential even with `-fopenmp`.
 
 ### 10.4 Determinism
@@ -1666,7 +1667,7 @@ Adds `Dhramp` to all `h[i]`. Called once per ramp step from the main loop, `n_hr
 ```c
 void precompute_trig(system_state *s);
 ```
-Computes `cos(phi[a])` and `sin(phi[a])` for all fields into the scratch arrays `cos_phi`/`sin_phi`. Called once at startup (right after `initialize_pump`), since `phi` never changes during the run. Avoids 4·N trig calls per step — the RK2 core never calls `cos()`/`sin()` itself.
+Computes `cos(phi[a])` and `sin(phi[a])` for all fields into the scratch arrays `cos_phi`/`sin_phi`. Called once at startup (right after `initialize_pump`), since `phi` never changes during the run. Avoids 4·N trig calls per step - the RK2 core never calls `cos()`/`sin()` itself.
 
 #### `compute_hyperspin_norm`
 ```c
@@ -1744,7 +1745,7 @@ L0 (non-interacting Lyapunov):
 L0 = −½·Σ_a [ ½·h_a·Σ_k(Re²−Im²) − g·|S_a|² − ½β·|S_a|⁴ ]
 ```
 
-Lc (coupling Lyapunov, per edge — the ½ in the formula cancels the 2× from ordered-pair double-counting):
+Lc (coupling Lyapunov, per edge - the ½ in the formula cancels the 2× from ordered-pair double-counting):
 ```
 Lc -= Jr*(S_RE(a,k)*S_RE(b,k) + S_IM(a,k)*S_IM(b,k))
     +  Ji*(S_IM(a,k)*S_RE(b,k) - S_RE(a,k)*S_IM(b,k));
@@ -1786,9 +1787,9 @@ observables compute_observables(system_state *s, double g, double beta, double d
 ```
 Computes observables from the current system state with merged loops to reuse intermediate quantities. The `compute_H` and `compute_full` flags implement a two-level gate (see §8.3):
 
-- **`compute_H=0, compute_full=0`** (idle steps): the entire call is skipped in the main loop — no observables computed.
+- **`compute_H=0, compute_full=0`** (idle steps): the entire call is skipped in the main loop, no observables computed.
 - **`compute_H=1, compute_full=0`** (E-target / stability-check / final steps): `inv_sqrtS2` is precomputed, then the edge pass accumulates H only (Lc, L0, magnetization, DS² are **not** computed).
-- **`compute_full=1`** (save steps): `inv_sqrtS2` is precomputed in a separate pre-pass, then three merged passes run — **(1)** single field pass computing L0, mean_S2, and mean2_S2 jointly; **(2)** edge pass computing H and Lc jointly; **(3)** magnetization pass (parallelized over N fields via OpenMP 4.5 VLA array reduction) reusing `inv_sqrtS2` from the pre-pass. L = L0 + Lc and dL = (L - L_old)/dt are computed after the passes.
+- **`compute_full=1`** (save steps): `inv_sqrtS2` is precomputed in a separate pre-pass, then three merged passes run - **(1)** single field pass computing L0, mean_S2, and mean2_S2 jointly; **(2)** edge pass computing H and Lc jointly; **(3)** magnetization pass (parallelized over N fields via OpenMP 4.5 VLA array reduction) reusing `inv_sqrtS2` from the pre-pass. L = L0 + Lc and dL = (L - L_old)/dt are computed after the passes.
 
 Returns an `observables` struct; uncomputed fields are set to 0. See §8.3.
 
@@ -1856,7 +1857,7 @@ Copies a file from `src` to `<dir>/<dst_name>` using an 8 KB buffer. Returns 0 o
 ```c
 void write_metadata(const char *dir, int NS, int N, int D, int initial_type, double pth, double hm, double H, double t_final, const char *stop_reason);
 ```
-Writes `metadata.txt` to the result folder: program version ("Complex_HSM v2.9"), timestamp (YYYY-MM-DD HH:MM:SS), NS/N/D/initial_type/pth/hm, H_final, t_final, stop reason, and a list of output files. Note: the output-file list is hardcoded (`Data_Final.dat`, `Data_Matrix.dat`, `Complex_HSM.ini`) and does not reflect what was actually produced — in sparse-only runs no `Data_Matrix.dat` exists and `Data_Matrix_sparse.dat` is never listed.
+Writes `metadata.txt` to the result folder: program version ("Complex_HSM v2.9"), timestamp (YYYY-MM-DD HH:MM:SS), NS/N/D/initial_type/pth/hm, H_final, t_final, stop reason, and a list of output files. Note: the output-file list is hardcoded (`Data_Final.dat`, `Data_Matrix.dat`, `Complex_HSM.ini`) and does not reflect what was actually produced - in sparse-only runs no `Data_Matrix.dat` exists and `Data_Matrix_sparse.dat` is never listed.
 
 ### 11.8 Utility Functions
 
@@ -1906,18 +1907,18 @@ Use the same seed and same config. With file-loaded matrices and `allowed_H_chan
 
 **Q: What's a good dt?**
 
-RK2 stability requires `dt ≲ C / max(h, g, β·|S|², |λ_J|, deq)` where C ≈ 1–2 (see §7.5). Start with `dt = 0.01` and decrease if the simulation behaves erratically. The step size is fixed — there is no adaptive stepping.
+RK2 stability requires `dt ≲ C / max(h, g, β·|S|², |λ_J|, deq)` where C ≈ 1 to 2 (see §7.5). Start with `dt = 0.01` and decrease if the simulation behaves erratically. The step size is fixed - there is no adaptive stepping.
 
 **Q: How do I know if my simulation has converged?**
 
 When it stops, the program prints the stop reason to stdout, followed by `> t_final = ...`:
-- `> Stopped (Target Energy Reached)` — H ≤ E_target × (1 − E_target_tol)
-- `> Stopped (Energy stable for N consecutive checks)`, with N = `stable_window` — energy varied less than or equal to `allowed_H_change` for `stable_window` consecutive checks
-- `> Stopped (Reached tmax)` — max simulation time reached (may not be converged)
+- `> Stopped (Target Energy Reached)` - H ≤ E_target × (1 − E_target_tol)
+- `> Stopped (Energy stable for N consecutive checks)`, with N = `stable_window` - energy varied less than or equal to `allowed_H_change` for `stable_window` consecutive checks
+- `> Stopped (Reached tmax)` - max simulation time reached (may not be converged)
 
 When `output_dir` is set, `metadata.txt` records these as `Target energy reached`, `Energy stable` and `Reached tmax`.
 
-A converged run typically stops via the stability condition with small `allowed_H_change`. For large N, use `relative_H_change = 1` so the tolerance scales with system size — otherwise the absolute `allowed_H_change` may be too strict to trigger in practice.
+A converged run typically stops via the stability condition with small `allowed_H_change`. For large N, use `relative_H_change = 1` so the tolerance scales with system size, otherwise the absolute `allowed_H_change` may be too strict to trigger in practice.
 
 **Q: What does the equalizer do?**
 
@@ -1936,6 +1937,7 @@ Only use h > 0 for **real** coupling matrices (`type_coup = 0`) where the pump a
 
 - **Output folder or file cannot be created:** failed folder creation is not checked, and a failed file open stops the run only for `save_dyn = 0`. With `save_dyn` 1, 2 or 3 the program prints `Error creating ...`, continues, and hits a segmentation fault at the first save. This happens, for example, when the parent of a custom `output_dir` does not exist (§7.8).
 - **Old matrix files in the working folder:** the run folder receives copies of whichever matrix files exist in the working folder. A sparse-only run with an old `Data_Matrix.dat` there also copies that file, even though it does not belong to the run.
+- **Both matrix files present (`new_coupling = 0`):** the program uses `Data_Matrix_sparse.dat` and ignores `Data_Matrix.dat`, so an old sparse file silently overrides a new dense one. The startup banner says `Data_Matrix.dat` even when the sparse file is the one being read.
 - **`t_hramp = -1` with `n_hramp > 0`:** the ramp never fires, but its computed end time, `t_hramp + (n_hramp − 1)·Dt_hramp`, still counts in the stability check condition (§7.4), so the check can be delayed.
 - **Matrix file does not match the config (`new_coupling = 0`):** `N` is not compared with the file. A sparse file with an index ≥ `N` writes outside the allocated arrays and corrupts memory, while a larger `N` leaves the extra hyperspins with no J couplings. A dense file read with too small an `N` is misread with no error, and too large an `N` gives `Error reading element ...` and then the segmentation fault described in §6.3. Hermiticity is not checked either: a non-Hermitian dense file gives inconsistent CSR and edge-list data.
 - **`lattice_d > 16`:** lattice coordinates are held in fixed arrays of 16 entries and `lattice_d` is not checked, so larger values overflow them.
