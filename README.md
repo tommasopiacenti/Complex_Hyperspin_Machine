@@ -4,6 +4,10 @@
 
 ---
 
+This code was used to obtain the results presented in the paper ''Complex Hyperspin Machine and Symmetry Quenching'', available at https://arxiv.org/abs/2611.09324. The paper can be used as a more complete reference for the physics of the systtem simulated by the Complex_HSM C program.
+
+---
+
 ## Acknowledgments
 Funded by the European Union (HORIZON-ERC-2023-ADG HYPERSPIM project Grant No. 101139828)
 [hyperspim.org](https://hyperspim.newcomplexlight.org)
